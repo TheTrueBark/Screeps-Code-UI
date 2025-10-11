@@ -2,10 +2,14 @@ import { useCallback, type KeyboardEvent, type MouseEvent } from 'react';
 import { useFileStore } from '../../state/fileStore';
 import { cn } from '../../utils/classNames';
 
+type TabsBarProps = {
+  className?: string;
+};
+
 /**
  * Displays open file tabs similar to VSCode.
  */
-export const TabsBar = () => {
+export const TabsBar = ({ className }: TabsBarProps) => {
   const openTabs = useFileStore((state) => state.openTabs);
   const activeFileId = useFileStore((state) => state.activeFileId);
   const setActiveFile = useFileStore((state) => state.setActiveFile);
@@ -29,7 +33,7 @@ export const TabsBar = () => {
   );
 
   return (
-    <div className="tabs-bar">
+    <div className={cn('tabs-bar', className)}>
       {openTabs.length === 0 ? (
         <div className="px-4 text-sm text-slate-400">Open a file to begin editing.</div>
       ) : (
