@@ -1,0 +1,20 @@
+{
+  "name": "screeps-code-ui-compiler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "generate": "node dist/index.js",
+    "dev": "nodemon --watch src --exec npm run generate"
+  },
+  "dependencies": {
+    "ts-morph": "^23.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "nodemon": "^3.0.3",
+    "typescript": "^5.4.2"
+  }
+}

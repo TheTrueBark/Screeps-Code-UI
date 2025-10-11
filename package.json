@@ -1,0 +1,16 @@
+{
+  "name": "screeps-code-ui",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "compiler"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "lint": "npm run lint --workspace frontend",
+    "build:compiler": "npm run build --workspace compiler",
+    "generate": "npm run generate --workspace compiler"
+  }
+}
