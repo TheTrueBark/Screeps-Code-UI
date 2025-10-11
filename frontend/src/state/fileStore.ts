@@ -42,8 +42,8 @@ const initialTree: TreeNode[] = [
         type: 'file'
       },
       {
-        id: 'roles-builder',
-        name: 'builder.ts',
+        id: 'roles-hauler',
+        name: 'hauler.ts',
         type: 'file'
       }
     ]

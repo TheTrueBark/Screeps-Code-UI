@@ -1,89 +1,141 @@
 .editor-shell {
-  @apply flex h-screen bg-slate-950 text-slate-100;
+  @apply relative flex h-screen overflow-hidden bg-[#060b16] text-slate-100;
+  background-image: radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 45%),
+    radial-gradient(circle at bottom right, rgba(168, 85, 247, 0.08), transparent 40%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(2, 6, 23, 0.98));
 }
 
 .editor-sidebar {
-  @apply flex w-64 shrink-0 flex-col border-r border-slate-800 bg-slate-950/95;
+  @apply flex w-72 shrink-0 flex-col border-r border-slate-800/60 bg-slate-950/50 backdrop-blur;
+  transition: width 180ms ease, opacity 180ms ease;
+}
+
+.editor-sidebar.collapsed {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sidebar-header {
-  @apply border-b border-slate-800 px-4 py-5;
+  @apply flex items-start justify-between gap-4 border-b border-slate-800/60 px-6 py-6;
+}
+
+.sidebar-title {
+  @apply text-lg font-semibold text-slate-100;
+}
+
+.sidebar-subtitle {
+  @apply text-xs uppercase tracking-[0.2em] text-slate-500;
+}
+
+.sidebar-toggle {
+  @apply inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700/60 bg-slate-900/60 text-sm text-slate-400 transition hover:border-slate-500 hover:text-slate-100;
+}
+
+.sidebar-expander {
+  @apply absolute left-2 top-6 inline-flex h-9 items-center justify-center rounded-full border border-slate-700/60 bg-slate-900/70 px-4 text-xs font-semibold uppercase tracking-[0.3em] text-slate-300 transition hover:border-slate-500 hover:text-slate-100;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.45);
 }
 
 .editor-main {
-  @apply flex min-w-0 flex-1 flex-col bg-[#1e1e1e];
+  @apply relative flex min-w-0 flex-1 flex-col overflow-hidden;
+}
+
+.editor-toolbar {
+  @apply flex items-center gap-4 border-b border-slate-800/60 bg-slate-950/40 px-6 py-4 backdrop-blur;
+}
+
+.toolbar-tabs {
+  @apply flex min-w-0 flex-1;
+}
+
+.toolbar-generate {
+  @apply ml-auto;
+}
+
+.btn-generate {
+  @apply relative inline-flex h-10 items-center justify-center overflow-hidden rounded-full border border-emerald-500/60 bg-emerald-500/20 px-5 text-sm font-semibold uppercase tracking-[0.2em] text-emerald-200 transition;
+}
+
+.btn-generate.disabled,
+.btn-generate:disabled {
+  @apply cursor-not-allowed border-slate-700/70 bg-slate-800/40 text-slate-500;
+}
+
+.btn-generate:not(.disabled):not(:disabled):hover {
+  @apply border-emerald-400 bg-emerald-500/30 text-emerald-100;
+}
+
+.btn-generate-glow {
+  @apply absolute inset-0 rounded-full bg-gradient-to-r from-emerald-400/40 via-cyan-400/30 to-emerald-500/20 opacity-0 transition;
+}
+
+.btn-generate:not(.disabled):not(:disabled):hover .btn-generate-glow {
+  @apply opacity-100;
+}
+
+.btn-generate-label {
+  @apply relative text-[0.7rem];
 }
 
 .workspace {
-  @apply flex min-h-0 flex-1 overflow-hidden;
-}
-
-.node-library {
-  @apply w-64 shrink-0 border-r border-slate-800 bg-slate-900/70 p-4;
-}
-
-.node-library-header {
-  @apply border-b border-slate-800 pb-2;
-}
-
-.node-library-item {
-  @apply w-full rounded-md border border-slate-700/70 bg-slate-800/80 px-3 py-2 text-left text-slate-200 transition hover:border-slate-500 hover:bg-slate-700/70;
+  @apply flex flex-1 gap-6 px-8 pb-10 pt-8;
 }
 
 .canvas-wrapper {
-  @apply flex flex-1 flex-col overflow-hidden p-4;
+  @apply relative flex min-w-0 flex-1 overflow-hidden rounded-3xl border border-slate-800/60 bg-slate-950/30 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.9)];
 }
 
 .canvas-surface {
-  @apply h-full min-h-[26rem] rounded-lg border border-slate-800 bg-[#1e1e1e] shadow-inner;
+  @apply h-full w-full;
+  background-color: rgba(15, 23, 42, 0.85);
+  background-image: linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
 
 .minimap {
-  @apply !bg-slate-900/80 !text-slate-200;
+  @apply !rounded-lg !border !border-slate-700/60 !bg-slate-900/80 !text-slate-200;
 }
 
 .controls {
-  @apply !bg-slate-900/90 !text-slate-100;
+  @apply !border !border-slate-700/70 !bg-slate-900/80 !text-slate-100;
 }
 
-.btn-primary {
-  @apply rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-emerald-800 disabled:text-emerald-200;
+.output-panel {
+  @apply w-80 shrink-0 rounded-3xl border border-slate-800/60 bg-slate-950/40 p-5 text-sm shadow-[0_20px_40px_-25px_rgba(15,23,42,0.8)];
 }
 
-.generator-panel {
-  @apply flex flex-col gap-3 border-t border-slate-800 bg-slate-950/80 px-4 py-3 sm:flex-row sm:items-start;
-}
-
-.output-view {
-  @apply flex-1 rounded-md border border-slate-800 bg-slate-900/60 p-3;
+.output-heading {
+  @apply mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-slate-400;
 }
 
 .output-pre {
-  @apply max-h-48 overflow-auto text-xs leading-relaxed text-emerald-200;
+  @apply h-full max-h-[28rem] overflow-auto rounded-2xl border border-slate-800/60 bg-slate-950/70 p-4 text-xs leading-relaxed text-emerald-200;
 }
 
 .tabs-bar {
-  @apply flex items-center gap-2 border-b border-slate-800 bg-slate-900/80 px-2;
+  @apply flex min-w-0 flex-1 items-center gap-2 overflow-x-auto;
 }
 
 .tab-button {
-  @apply flex items-center gap-2 rounded-t-md border border-transparent px-3 py-2 text-sm text-slate-300 transition hover:text-slate-100;
+  @apply flex min-w-[7rem] items-center gap-3 rounded-full border border-transparent bg-transparent px-4 py-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-400 transition hover:text-slate-100;
 }
 
 .tab-button.active {
-  @apply border-slate-700 bg-slate-800/90 text-slate-50;
+  @apply border-slate-700/70 bg-slate-900/70 text-slate-100 shadow-[0_12px_25px_-20px_rgba(56,189,248,0.8)];
 }
 
 .tab-close {
-  @apply ml-2 inline-flex h-4 w-4 items-center justify-center rounded text-xs text-slate-400 hover:bg-slate-700 hover:text-slate-100 focus:outline-none;
+  @apply ml-auto inline-flex h-4 w-4 items-center justify-center rounded-full text-[0.6rem] text-slate-500 transition hover:bg-slate-700/70 hover:text-slate-100 focus:outline-none;
 }
 
 .file-tree {
-  @apply flex flex-1 flex-col overflow-y-auto px-4 py-3;
+  @apply flex flex-1 flex-col gap-3 overflow-y-auto px-6 py-6 text-sm;
 }
 
 .file-tree-header {
-  @apply flex items-center justify-between border-b border-slate-800 pb-2;
+  @apply flex items-center justify-between border-b border-slate-800/60 pb-3 text-xs uppercase tracking-[0.25em] text-slate-400;
 }
 
 .tree-group {
@@ -91,7 +143,7 @@
 }
 
 .tree-item {
-  @apply flex items-center gap-2 rounded-md px-2 py-1 text-sm text-slate-200 transition hover:bg-slate-800/60;
+  @apply flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-900/60;
 }
 
 .tree-item.file {
@@ -99,11 +151,11 @@
 }
 
 .tree-item.editing {
-  @apply bg-slate-800/60;
+  @apply bg-slate-900/60;
 }
 
 .tree-toggle {
-  @apply flex h-5 w-5 items-center justify-center rounded border border-transparent text-xs text-slate-400 hover:border-slate-600 hover:text-slate-200;
+  @apply flex h-6 w-6 items-center justify-center rounded-full border border-slate-700/60 text-xs text-slate-400 transition hover:border-slate-500 hover:text-slate-100;
 }
 
 .tree-actions {
@@ -111,38 +163,106 @@
 }
 
 .tree-action {
-  @apply inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded border border-slate-700 bg-slate-800 text-[0.65rem] text-slate-300 hover:border-slate-500 hover:bg-slate-700;
+  @apply inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-full border border-slate-700/70 bg-slate-900/60 text-[0.55rem] uppercase tracking-[0.25em] text-slate-300 transition hover:border-slate-500 hover:text-slate-100;
 }
 
 .tree-input {
-  @apply h-7 w-full rounded border border-slate-600 bg-slate-900 px-2 text-sm text-slate-100 outline-none focus:border-emerald-400;
+  @apply h-8 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 text-sm text-slate-100 outline-none focus:border-emerald-400;
 }
 
 .tree-label {
-  @apply truncate text-left;
+  @apply truncate uppercase tracking-[0.18em];
 }
 
 .node-card {
-  @apply relative w-56 rounded-lg border border-slate-700/80 bg-slate-800/90 p-4 text-left shadow-md;
+  @apply relative w-56 rounded-2xl border border-slate-800/60 bg-slate-900/70 p-4 text-left shadow-[0_18px_40px_-30px_rgba(15,23,42,0.9)];
 }
 
 .node-header {
-  @apply mb-2 text-sm font-semibold text-emerald-300;
+  @apply mb-3 text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300;
 }
 
 .node-label {
-  @apply flex flex-col gap-1 text-xs text-slate-300;
+  @apply flex flex-col gap-2 text-xs uppercase tracking-[0.2em] text-slate-300;
 }
 
 .node-select {
-  @apply rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100 outline-none focus:border-emerald-400;
+  @apply rounded-lg border border-slate-700 bg-slate-950/80 px-2 py-1 text-xs uppercase tracking-[0.2em] text-slate-100 outline-none focus:border-emerald-400;
 }
 
 .node-footer {
-  @apply mt-3 text-[0.65rem] uppercase tracking-wide text-slate-500;
+  @apply mt-4 text-[0.6rem] uppercase tracking-[0.3em] text-slate-500;
 }
 
 .node-handle {
-  background-color: #34d399;
-  border: 1px solid #0f766e;
+  background-color: rgba(16, 185, 129, 0.9);
+  border: 1px solid rgba(5, 150, 105, 0.9);
+}
+
+.node-library {
+  @apply mx-8 mb-8 rounded-3xl border border-slate-800/60 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.9)] backdrop-blur;
+}
+
+.node-library-content {
+  @apply max-h-72 overflow-y-auto;
+}
+
+.node-dock {
+  @apply flex flex-col gap-4 border-t border-slate-800/60 bg-slate-950/30 px-8 py-6 backdrop-blur;
+}
+
+.node-dock-options {
+  @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-3;
+}
+
+.node-dock-option {
+  @apply flex flex-col gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/60 px-4 py-4 text-left text-xs uppercase tracking-[0.2em] text-slate-300 transition hover:border-slate-600 hover:text-slate-100;
+}
+
+.node-dock-option.disabled {
+  @apply cursor-not-allowed opacity-60 hover:border-slate-800/60 hover:text-slate-300;
+}
+
+.node-option-label {
+  @apply text-sm font-semibold text-slate-100;
+}
+
+.node-option-desc {
+  @apply text-[0.6rem] leading-relaxed text-slate-400;
+}
+
+.node-dock-hint {
+  @apply col-span-full rounded-2xl border border-dashed border-slate-700/70 bg-slate-950/40 px-4 py-3 text-center text-[0.6rem] uppercase tracking-[0.3em] text-slate-500;
+}
+
+.node-dock-groups {
+  @apply flex flex-wrap items-center justify-center gap-3;
+}
+
+.node-group-button {
+  @apply relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/60 text-slate-400 transition hover:border-slate-600 hover:text-slate-100;
+}
+
+.node-group-button.active {
+  @apply border-transparent text-slate-100 shadow-[0_18px_35px_-25px_rgba(129,140,248,0.8)];
+}
+
+.node-group-icon {
+  @apply relative h-6 w-6 fill-current;
+}
+
+.node-group-label {
+  @apply absolute -bottom-6 left-1/2 -translate-x-1/2 text-[0.55rem] uppercase tracking-[0.35em] text-slate-400;
+}
+
+.node-group-button.active .node-group-label {
+  @apply text-slate-100;
+}
+
+.node-group-sheen {
+  @apply absolute inset-0 -z-10 rounded-[1.1rem] bg-gradient-to-br opacity-0 transition;
+}
+
+.node-group-button.active .node-group-sheen {
+  @apply opacity-100;
 }

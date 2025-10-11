@@ -10,58 +10,17 @@ import {
   useReactFlow,
   type Connection,
   type Edge,
-  type Node,
-  type NodeTypes
+  type Node
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, type DragEvent } from 'react';
 import { useFileStore } from '../../state/fileStore';
 import { useNodeStore } from '../../state/nodeStore';
-import { ActionNode } from './NodeTypes/ActionNode';
-import { LogicNode } from './NodeTypes/LogicNode';
-import { LoopNode } from './NodeTypes/LoopNode';
-import { MemoryNode } from './NodeTypes/MemoryNode';
+import type { ScreepsNodeData } from './NodeTypes/BaseNode';
+import { NODE_DEFINITION_MAP, NODE_TYPE_MAP } from './nodeRegistry';
 
-const nodeTypes = {
-  logic: LogicNode,
-  action: ActionNode,
-  memory: MemoryNode,
-  loop: LoopNode
-} satisfies NodeTypes;
-
-type NodeKind = keyof typeof nodeTypes;
-
-type DefaultNodeFactory = {
-  [key in NodeKind]: () => Node;
-};
-
-const createDefaultNode: DefaultNodeFactory = {
-  logic: () => ({
-    id: nanoid(),
-    type: 'logic',
-    position: { x: 0, y: 0 },
-    data: { variant: 'IF' }
-  }),
-  action: () => ({
-    id: nanoid(),
-    type: 'action',
-    position: { x: 0, y: 0 },
-    data: { action: 'HARVEST' }
-  }),
-  memory: () => ({
-    id: nanoid(),
-    type: 'memory',
-    position: { x: 0, y: 0 },
-    data: { operation: 'READ' }
-  }),
-  loop: () => ({
-    id: nanoid(),
-    type: 'loop',
-    position: { x: 0, y: 0 },
-    data: { loop: 'FOR' }
-  })
-};
+const nodeTypes = NODE_TYPE_MAP;
 
 const CanvasEditorInner = () => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -71,7 +30,7 @@ const CanvasEditorInner = () => {
   const graph = useNodeStore((state) => state.getGraphForFile(activeFileId));
   const { screenToFlowPosition } = useReactFlow();
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreepsNodeData>>(graph.nodes as Node<ScreepsNodeData>[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
 
   useEffect(() => {
@@ -83,7 +42,7 @@ const CanvasEditorInner = () => {
   }, [activeFileId, initializeGraph]);
 
   useEffect(() => {
-    setNodes(graph.nodes);
+    setNodes(graph.nodes as Node<ScreepsNodeData>[]);
     setEdges(graph.edges);
   }, [graph.nodes, graph.edges, setEdges, setNodes]);
 
@@ -92,7 +51,7 @@ const CanvasEditorInner = () => {
       return;
     }
 
-    setGraphState(activeFileId, nodes, edges);
+    setGraphState(activeFileId, nodes as Node<ScreepsNodeData>[], edges);
   }, [activeFileId, edges, nodes, setGraphState]);
 
   const onConnect = useCallback(
@@ -107,8 +66,9 @@ const CanvasEditorInner = () => {
         return;
       }
 
-      const nodeType = event.dataTransfer.getData('application/reactflow') as NodeKind;
-      if (!nodeType || !(nodeType in nodeTypes)) {
+      const nodeKind = event.dataTransfer.getData('application/screeps-node-kind');
+      const definition = NODE_DEFINITION_MAP[nodeKind];
+      if (!definition) {
         return;
       }
 
@@ -128,11 +88,16 @@ const CanvasEditorInner = () => {
         y: event.clientY
       });
 
-      const baseNode = createDefaultNode[nodeType]();
-      const newNode: Node = {
-        ...baseNode,
-        id: `${nodeType}-${nanoid(6)}`,
-        position
+      const newNode: Node<ScreepsNodeData> = {
+        id: `${definition.type}-${nanoid(6)}`,
+        type: definition.type,
+        position,
+        data: {
+          kind: definition.kind,
+          label: definition.title,
+          family: definition.family,
+          config: JSON.parse(JSON.stringify(definition.defaultConfig ?? {}))
+        }
       };
 
       setNodes((current) => [...current, newNode]);
