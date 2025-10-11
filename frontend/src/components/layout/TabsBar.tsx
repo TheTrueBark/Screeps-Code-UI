@@ -1,6 +1,6 @@
-import classNames from 'classnames';
 import { useCallback, type KeyboardEvent, type MouseEvent } from 'react';
 import { useFileStore } from '../../state/fileStore';
+import { cn } from '../../utils/classNames';
 
 /**
  * Displays open file tabs similar to VSCode.
@@ -38,9 +38,7 @@ export const TabsBar = () => {
             key={tab.id}
             type="button"
             onClick={handleSelect(tab.id)}
-            className={classNames('tab-button', {
-              active: tab.id === activeFileId
-            })}
+            className={cn('tab-button', { active: tab.id === activeFileId })}
           >
             <span className="truncate">{tab.name}</span>
             <span

@@ -1,6 +1,6 @@
 import { useCallback, type DragEvent } from 'react';
-import classNames from 'classnames';
 import { useFileStore } from '../../state/fileStore';
+import { cn } from '../../utils/classNames';
 
 const NODE_ITEMS = [
   {
@@ -54,7 +54,7 @@ export const NodeLibrary = () => {
             type="button"
             draggable={Boolean(activeFileId)}
             onDragStart={(event) => handleDragStart(event, item.type)}
-            className={classNames('node-library-item', {
+            className={cn('node-library-item', {
               'opacity-50 cursor-not-allowed': !activeFileId
             })}
           >

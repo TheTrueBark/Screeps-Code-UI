@@ -1,4 +1,3 @@
-import classNames from 'classnames';
 import { useCallback, useState, type KeyboardEvent } from 'react';
 import {
   useFileStore,
@@ -7,6 +6,7 @@ import {
   type TreeNode
 } from '../../state/fileStore';
 import { useNodeStore } from '../../state/nodeStore';
+import { cn } from '../../utils/classNames';
 import { findNodeById } from '../../utils/fileHelpers';
 
 /**
@@ -155,7 +155,7 @@ export const FileTree = () => {
     return (
       <div
         key={fileNode.id}
-        className={classNames('tree-item file', { editing: isEditing })}
+        className={cn('tree-item file', { editing: isEditing })}
         style={paddingStyle}
         role="button"
         tabIndex={0}
