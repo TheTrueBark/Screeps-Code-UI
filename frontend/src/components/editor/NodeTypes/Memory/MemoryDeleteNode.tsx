@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Memory Delete",
   subtitle: "Memory",
   description: "Remove a value from memory at the provided path.",
-  family: "memory",
+  family: "memoryData",
   category: "Memory",
   defaultConfig: {
     scope: "global",

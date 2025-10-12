@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Creep",
   description:
     "Attack a hostile creep or structure with melee or ranged style.",
-  family: "creep",
+  family: "creepActions",
   category: "Creep Actions",
   defaultConfig: {
     style: "melee",

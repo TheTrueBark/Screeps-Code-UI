@@ -13,7 +13,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Transfer",
   subtitle: "Creep",
   description: "Transfer a resource to a target structure or creep.",
-  family: "creep",
+  family: "creepActions",
   category: "Creep Actions",
   defaultConfig: {
     resource: "RESOURCE_ENERGY",

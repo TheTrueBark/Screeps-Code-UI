@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Query",
   description:
     "Select the best item from a list using distance or scoring strategies.",
-  family: "query",
+  family: "queryTargeting",
   category: "Query & Targeting",
   defaultConfig: {
     strategy: "closestByPath",

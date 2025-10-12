@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Merger",
   subtitle: "Fan-in",
   description: "Join multiple upstream branches before continuing.",
-  family: "flow",
+  family: "flowControl",
   category: "Flow & Control",
   defaultConfig: {},
   configFields: [],

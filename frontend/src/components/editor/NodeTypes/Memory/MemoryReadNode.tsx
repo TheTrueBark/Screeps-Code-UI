@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Memory Read",
   subtitle: "Memory",
   description: "Read a value from Memory, RoomMemory or CreepMemory.",
-  family: "memory",
+  family: "memoryData",
   category: "Memory",
   defaultConfig: {
     scope: "global",

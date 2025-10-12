@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Link Transfer",
   subtitle: "Structure",
   description: "Send energy between link structures.",
-  family: "structure",
+  family: "structureLogic",
   category: "Structure Logic",
   defaultConfig: {
     amount: null,

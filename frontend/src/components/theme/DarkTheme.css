@@ -394,11 +394,14 @@
 
 .neo-flow .react-flow__pane {
   background-color: #0b0c0d;
-  background-image:
-    linear-gradient(#1c1d20 1px, transparent 1px),
-    linear-gradient(90deg, #1c1d20 1px, transparent 1px);
+  background-image: radial-gradient(
+    circle at center,
+    rgba(28, 31, 36, 0.9) 0.7px,
+    transparent 0.7px
+  );
   background-size: var(--grid-size, 24px) var(--grid-size, 24px);
-  background-position: var(--grid-offset-x, 0px) var(--grid-offset-y, 0px);
+  background-position: calc(var(--grid-offset-x, 0px))
+    calc(var(--grid-offset-y, 0px));
 }
 
 .neo-flow .react-flow__attribution {
@@ -1063,19 +1066,12 @@
 
 .node-port {
   position: relative;
-  background: var(--panel-2);
-  border: 1px solid rgba(0, 200, 255, 0.4);
-  box-shadow: inset 0 0 0 1px rgba(0, 200, 255, 0.25);
-}
-
-.node-port::after {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border-radius: 999px;
-  background: var(--panel);
-  box-shadow: 0 0 6px rgba(0, 200, 255, 0.3);
-  opacity: 0.8;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0, 200, 255, 0.25);
+  border: 1px solid rgba(0, 200, 255, 0.6);
+  box-shadow: 0 0 4px rgba(0, 200, 255, 0.45);
 }
 
 .node-port-placeholder {
@@ -1271,6 +1267,17 @@
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
+}
+
+.bottom-menu-tile-status {
+  margin-top: 4px;
+  padding: 1px 6px;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  border-radius: 2px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(250, 204, 21, 0.85);
 }
 
 .bottom-menu-tile-acronym {
@@ -1705,6 +1712,18 @@
 .floating-catalog-tile.disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.floating-catalog-tile .tile-status {
+  margin-top: 4px;
+  padding: 1px 6px;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  border-radius: 2px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(250, 204, 21, 0.85);
+  align-self: flex-end;
 }
 
 .tile-acronym {

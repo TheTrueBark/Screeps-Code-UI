@@ -15,12 +15,16 @@ type FloatingCatalogProps = {
 };
 
 const FAMILY_TABS: Array<{ key: NodeFamily; label: string }> = [
-  { key: "flow", label: "Flow" },
-  { key: "query", label: "Query" },
-  { key: "creep", label: "Creep" },
-  { key: "structure", label: "Structure" },
-  { key: "memory", label: "Memory" },
-  { key: "task", label: "Tasks" },
+  { key: "flowControl", label: "Flow" },
+  { key: "queryTargeting", label: "Query" },
+  { key: "creepActions", label: "Creep" },
+  { key: "structureLogic", label: "Structure" },
+  { key: "economyMarket", label: "Economy" },
+  { key: "power", label: "Power" },
+  { key: "memoryData", label: "Memory" },
+  { key: "mapNavigation", label: "Map" },
+  { key: "globalGame", label: "Global" },
+  { key: "taskMacro", label: "Tasks" },
 ];
 
 const groupByFamily = () =>
@@ -41,7 +45,7 @@ export const FloatingCatalog = ({
 }: FloatingCatalogProps) => {
   const activeFileId = useFileStore((state) => state.activeFileId);
   const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<NodeFamily>("flow");
+  const [activeTab, setActiveTab] = useState<NodeFamily>("flowControl");
   const groups = useMemo(groupByFamily, []);
 
   useEffect(() => {
@@ -166,23 +170,39 @@ export const FloatingCatalog = ({
           </div>
         ) : null}
         <div className="floating-catalog-grid">
-          {filtered.map((definition) => (
-            <button
-              key={definition.kind}
-              type="button"
-              draggable={Boolean(activeFileId)}
-              className={cn("floating-catalog-tile", { disabled })}
-              onDragStart={(event) => handleDragStart(event, definition.kind)}
-              onClick={() => handleTileClick(definition.kind)}
-              title={definition.docs.summary}
-            >
-              <span className="tile-acronym">
-                {definition.acronym ??
-                  definition.title.slice(0, 2).toUpperCase()}
-              </span>
-              <span className="tile-label">{definition.title}</span>
-            </button>
-          ))}
+          {filtered.map((definition) => {
+            const tileDisabled =
+              !activeFileId || definition.availability !== "available";
+            return (
+              <button
+                key={definition.kind}
+                type="button"
+                draggable={Boolean(activeFileId) && !tileDisabled}
+                className={cn("floating-catalog-tile", {
+                  disabled: tileDisabled,
+                })}
+                onDragStart={(event) => handleDragStart(event, definition.kind)}
+                onClick={() =>
+                  tileDisabled ? undefined : handleTileClick(definition.kind)
+                }
+                title={definition.docs.summary}
+              >
+                <span className="tile-acronym">
+                  {definition.acronym ??
+                    definition.title.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="tile-label">{definition.title}</span>
+                {definition.availability &&
+                definition.availability !== "available" ? (
+                  <span className="tile-status">
+                    {definition.availability === "planned"
+                      ? "Planned"
+                      : "Preview"}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
           {filtered.length === 0 ? (
             <div className="floating-catalog-empty">No nodes</div>
           ) : null}

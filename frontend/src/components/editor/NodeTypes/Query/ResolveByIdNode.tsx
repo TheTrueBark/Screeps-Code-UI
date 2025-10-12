@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Resolve ID",
   subtitle: "Query",
   description: "Resolve an object by its Game.getObjectById identifier.",
-  family: "query",
+  family: "queryTargeting",
   category: "Query & Targeting",
   defaultConfig: {
     id: "",

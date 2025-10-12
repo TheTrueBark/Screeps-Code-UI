@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Heal",
   subtitle: "Creep",
   description: "Heal a friendly creep using melee or ranged heals.",
-  family: "creep",
+  family: "creepActions",
   category: "Creep Actions",
   defaultConfig: {
     style: "melee",

@@ -1,18 +1,26 @@
 import type { NodeFamily, NodeMeta } from "./schema";
-import * as flow from "./flow";
-import * as query from "./query";
-import * as creep from "./creep";
-import * as structure from "./structure";
-import * as memory from "./memory";
-import * as tasks from "./tasks";
+import * as flowControl from "./flowControl";
+import * as queryTargeting from "./queryTargeting";
+import * as creepActions from "./creepActions";
+import * as structureLogic from "./structureLogic";
+import * as economyMarket from "./economyMarket";
+import * as power from "./power";
+import * as memoryData from "./memoryData";
+import * as mapNavigation from "./mapNavigation";
+import * as globalGame from "./globalGame";
+import * as taskMacro from "./taskMacro";
 
 const REGISTRY: Record<string, NodeMeta> = {
-  ...flow.nodes,
-  ...query.nodes,
-  ...creep.nodes,
-  ...structure.nodes,
-  ...memory.nodes,
-  ...tasks.nodes,
+  ...flowControl.nodes,
+  ...queryTargeting.nodes,
+  ...creepActions.nodes,
+  ...structureLogic.nodes,
+  ...economyMarket.nodes,
+  ...power.nodes,
+  ...memoryData.nodes,
+  ...mapNavigation.nodes,
+  ...globalGame.nodes,
+  ...taskMacro.nodes,
 };
 
 export const listAllMeta = (): NodeMeta[] => Object.values(REGISTRY);

@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Structure",
   description:
     "Configure priorities for tower healing, attacking and repairing.",
-  family: "structure",
+  family: "structureLogic",
   category: "Structure Logic",
   defaultConfig: {
     priorities: ["heal", "attack", "repair"],

@@ -14,7 +14,17 @@ import type {
 export interface ScreepsNodeData extends Record<string, unknown> {
   kind: string;
   label: string;
-  family: "flow" | "query" | "creep" | "structure" | "memory" | "task";
+  family:
+    | "flowControl"
+    | "queryTargeting"
+    | "creepActions"
+    | "structureLogic"
+    | "economyMarket"
+    | "power"
+    | "memoryData"
+    | "mapNavigation"
+    | "globalGame"
+    | "taskMacro";
   config: Record<string, unknown>;
   errors?: string[];
   warnings?: string[];
@@ -506,7 +516,7 @@ export const createNodeComponent = (
             config: {},
             kind: "",
             label: "",
-            family: "flow",
+            family: "flowControl",
           }
         }
       />

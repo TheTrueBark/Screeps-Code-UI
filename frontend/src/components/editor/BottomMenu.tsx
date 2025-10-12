@@ -9,7 +9,11 @@ type CategoryKey =
   | "query"
   | "creep"
   | "structure"
+  | "economy"
+  | "power"
   | "memory"
+  | "map"
+  | "global"
   | "tasks"
   | "search";
 
@@ -21,12 +25,21 @@ type CategoryDefinition = {
 };
 
 const CATEGORIES: CategoryDefinition[] = [
-  { key: "flow", label: "Flow", family: "flow", glyph: "FL" },
-  { key: "query", label: "Query", family: "query", glyph: "QR" },
-  { key: "creep", label: "Creep", family: "creep", glyph: "CP" },
-  { key: "structure", label: "Structure", family: "structure", glyph: "ST" },
-  { key: "memory", label: "Memory", family: "memory", glyph: "ME" },
-  { key: "tasks", label: "Tasks", family: "task", glyph: "TS" },
+  { key: "flow", label: "Flow", family: "flowControl", glyph: "FL" },
+  { key: "query", label: "Query", family: "queryTargeting", glyph: "QT" },
+  { key: "creep", label: "Creep", family: "creepActions", glyph: "CA" },
+  {
+    key: "structure",
+    label: "Structure",
+    family: "structureLogic",
+    glyph: "ST",
+  },
+  { key: "economy", label: "Economy", family: "economyMarket", glyph: "EC" },
+  { key: "power", label: "Power", family: "power", glyph: "PW" },
+  { key: "memory", label: "Memory", family: "memoryData", glyph: "MD" },
+  { key: "map", label: "Map", family: "mapNavigation", glyph: "MP" },
+  { key: "global", label: "Global", family: "globalGame", glyph: "GG" },
+  { key: "tasks", label: "Tasks", family: "taskMacro", glyph: "TK" },
   { key: "search", label: "Search", glyph: "SR" },
 ];
 
@@ -45,6 +58,9 @@ type BottomMenuProps = {
 const buildSearchNodes = () => {
   const all = listAllMeta();
   return all.filter((meta) => {
+    if (meta.availability && meta.availability !== "available") {
+      return false;
+    }
     const summary =
       `${meta.title} ${meta.category ?? ""} ${meta.docs.summary ?? ""}`.toLowerCase();
     if (meta.shortcuts?.search) {

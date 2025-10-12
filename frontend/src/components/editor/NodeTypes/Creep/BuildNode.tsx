@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Build",
   subtitle: "Creep",
   description: "Construct a targeted construction site.",
-  family: "creep",
+  family: "creepActions",
   category: "Creep Actions",
   defaultConfig: {
     repairThreshold: 0.8,

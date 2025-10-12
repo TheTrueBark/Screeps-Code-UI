@@ -13,7 +13,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Withdraw",
   subtitle: "Creep",
   description: "Withdraw a resource from a container, storage or structure.",
-  family: "creep",
+  family: "creepActions",
   category: "Creep Actions",
   defaultConfig: {
     resource: "RESOURCE_ENERGY",

@@ -1,10 +1,48 @@
 export type NodeFamily =
-  | "flow"
-  | "query"
-  | "creep"
-  | "structure"
-  | "memory"
-  | "task";
+  | "flowControl"
+  | "queryTargeting"
+  | "creepActions"
+  | "structureLogic"
+  | "economyMarket"
+  | "power"
+  | "memoryData"
+  | "mapNavigation"
+  | "globalGame"
+  | "taskMacro";
+
+export type NodeAvailability = "available" | "experimental" | "planned";
+
+export interface NodeSettingSpec {
+  key: string;
+  label: string;
+  type:
+    | "string"
+    | "number"
+    | "boolean"
+    | "enum"
+    | "expression"
+    | "json"
+    | "object"
+    | "list";
+  default: unknown;
+  description: string;
+  placeholder?: string;
+  options?: Array<{ value: string; label: string }>;
+}
+
+export interface NodeIODetail {
+  id: string;
+  label: string;
+  type: string;
+  description: string;
+  optional?: boolean;
+  flow?: boolean;
+}
+
+export interface NodeExtensionSpec extends NodeSettingSpec {
+  advanced?: boolean;
+  group?: string;
+}
 
 export interface NodeVariant {
   key: string;
@@ -32,6 +70,11 @@ export interface NodeMeta {
   family: NodeFamily;
   category?: string;
   color?: string;
+  availability?: NodeAvailability;
+  defaultSettings: NodeSettingSpec[];
+  defaultInputs?: NodeIODetail[];
+  defaultOutputs?: NodeIODetail[];
+  editableExtensions?: NodeExtensionSpec[];
   variants?: NodeVariant[];
   defaultVariant?: string;
   ports: IOPortSpec[];

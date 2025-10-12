@@ -36,39 +36,63 @@ const familyPalette: Record<
   NodeFamily,
   { accent: string; port: string; badge: string; tint: string }
 > = {
-  flow: {
+  flowControl: {
     accent: "var(--cyan)",
     port: "var(--cyan)",
     badge: "FLOW",
     tint: "#101820",
   },
-  query: {
+  queryTargeting: {
     accent: "var(--yellow)",
     port: "var(--yellow)",
     badge: "QUERY",
     tint: "#18140a",
   },
-  creep: {
-    accent: "#8b8f97",
-    port: "#8b8f97",
+  creepActions: {
+    accent: "#7dd3fc",
+    port: "#7dd3fc",
     badge: "CREEP",
-    tint: "#141414",
+    tint: "#0f1820",
   },
-  structure: {
-    accent: "#8b8f97",
-    port: "#8b8f97",
+  structureLogic: {
+    accent: "#f97316",
+    port: "#f97316",
     badge: "STRUCT",
-    tint: "#141414",
+    tint: "#1f1208",
   },
-  memory: {
+  economyMarket: {
+    accent: "#22c55e",
+    port: "#22c55e",
+    badge: "ECON",
+    tint: "#0f1a12",
+  },
+  power: {
+    accent: "#f472b6",
+    port: "#f472b6",
+    badge: "POWER",
+    tint: "#1a0f16",
+  },
+  memoryData: {
     accent: "var(--purple)",
     port: "var(--purple)",
     badge: "MEM",
     tint: "#140f1b",
   },
-  task: {
-    accent: "var(--yellow)",
-    port: "var(--yellow)",
+  mapNavigation: {
+    accent: "#60a5fa",
+    port: "#60a5fa",
+    badge: "MAP",
+    tint: "#0f1624",
+  },
+  globalGame: {
+    accent: "#94a3b8",
+    port: "#94a3b8",
+    badge: "GLOBAL",
+    tint: "#13171d",
+  },
+  taskMacro: {
+    accent: "#facc15",
+    port: "#facc15",
     badge: "TASK",
     tint: "#18140a",
   },
@@ -296,7 +320,7 @@ export const NodeRenderer = ({
   const paletteSource = resolvedMeta
     ? familyPalette[resolvedMeta.family]
     : familyPalette[node.data.family];
-  const palette = paletteSource ?? familyPalette.flow;
+  const palette = paletteSource ?? familyPalette.flowControl;
   const headerRef = useRef<HTMLDivElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
   const [height, setHeight] = useState<number | null>(null);

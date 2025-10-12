@@ -52,23 +52,33 @@ export const NodeCatalogPanel = memo(
           ) : null}
         </header>
         <div className="bottom-menu-panel-grid">
-          {tiles.map((meta) => (
-            <button
-              key={meta.kind}
-              type="button"
-              className={cn("bottom-menu-tile", { disabled })}
-              draggable={!disabled}
-              onDragStart={(event) => handleDragStart(event, meta.kind)}
-              onClick={() => handleSpawn(meta.kind)}
-              onMouseEnter={() => setHovered(meta.summary)}
-              onMouseLeave={() => setHovered(null)}
-            >
-              <span className="bottom-menu-tile-acronym">
-                {meta.acronym ?? meta.title.slice(0, 2).toUpperCase()}
-              </span>
-              <span className="bottom-menu-tile-label">{meta.title}</span>
-            </button>
-          ))}
+          {tiles.map((meta) => {
+            const tileDisabled = disabled || meta.availability !== "available";
+            return (
+              <button
+                key={meta.kind}
+                type="button"
+                className={cn("bottom-menu-tile", { disabled: tileDisabled })}
+                draggable={!tileDisabled}
+                onDragStart={(event) => handleDragStart(event, meta.kind)}
+                onClick={() =>
+                  tileDisabled ? undefined : handleSpawn(meta.kind)
+                }
+                onMouseEnter={() => setHovered(meta.summary)}
+                onMouseLeave={() => setHovered(null)}
+              >
+                <span className="bottom-menu-tile-acronym">
+                  {meta.acronym ?? meta.title.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="bottom-menu-tile-label">{meta.title}</span>
+                {meta.availability && meta.availability !== "available" ? (
+                  <span className="bottom-menu-tile-status">
+                    {meta.availability === "planned" ? "Planned" : "Preview"}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
           {tiles.length === 0 ? (
             <div className="bottom-menu-empty">No nodes</div>
           ) : null}

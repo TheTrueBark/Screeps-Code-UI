@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Memory Write",
   subtitle: "Memory",
   description: "Persist values into Memory with optional merge semantics.",
-  family: "memory",
+  family: "memoryData",
   category: "Memory",
   defaultConfig: {
     scope: "global",

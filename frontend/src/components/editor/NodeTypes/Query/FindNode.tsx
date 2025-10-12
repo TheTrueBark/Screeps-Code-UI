@@ -9,7 +9,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Query",
   description:
     "Search for game objects using Screeps find constants and optional filters.",
-  family: "query",
+  family: "queryTargeting",
   category: "Query & Targeting",
   defaultConfig: {
     findConstant: "FIND_SOURCES",
