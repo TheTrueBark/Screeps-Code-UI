@@ -29,6 +29,7 @@ export interface IOPortRow {
   preview?: string;
   placeholder?: string;
   visible?: boolean;
+  control?: ReactNode;
 }
 
 const familyPalette: Record<NodeFamily, { accent: string; port: string; badge: string; tint: string }> = {
@@ -166,15 +167,16 @@ const Row = ({
 }) => {
   const palette = familyPalette[meta?.family ?? data.family];
   const Icon = row.icon ? getIconComponent(row.icon) : undefined;
+
+  const content = row.control ?? (
+    <div className="node-grid-preview" title={row.preview ?? row.placeholder}>
+      {row.preview ? <code>{row.preview}</code> : <span>{row.placeholder ?? ""}</span>}
+    </div>
+  );
+
   return (
-    <div
-      className="node-io-row"
-      data-row-key={row.key}
-      style={{
-        "--row-accent": palette?.accent ?? "var(--cyan)",
-      } as CSSProperties}
-    >
-      <div className="node-io-slot node-io-slot-left">
+    <div className="node-grid-row" data-row-key={row.key}>
+      <div className="node-grid-port node-grid-port-left">
         {row.inputPort ? (
           <Handle
             id={row.inputPort}
@@ -186,18 +188,15 @@ const Row = ({
         ) : (
           <span className="node-port-placeholder" />
         )}
-        <div className="node-io-label" title={row.label}>
-          <span className="node-io-label-icon" aria-hidden="true">
-            {Icon ? <Icon className="node-io-icon" /> : definition.subtitle?.slice(0, 1) ?? "•"}
-          </span>
-          <span className="node-io-label-text">{row.label}</span>
-        </div>
       </div>
-      <div className="node-io-spacer" />
-      <div className="node-io-slot node-io-slot-right">
-        <div className="node-io-preview" title={row.preview ?? row.placeholder}>
-          {row.preview ? <code>{row.preview}</code> : <span>{row.placeholder}</span>}
-        </div>
+      <div className="node-grid-label" title={row.label}>
+        <span className="node-grid-label-icon" aria-hidden="true" style={{ color: palette.accent }}>
+          {Icon ? <Icon className="node-io-icon" /> : definition.subtitle?.slice(0, 1) ?? "•"}
+        </span>
+        <span className="node-grid-label-text">{row.label}</span>
+      </div>
+      <div className="node-grid-control">{content}</div>
+      <div className="node-grid-port node-grid-port-right">
         {row.outputPort ? (
           <Handle
             id={row.outputPort}
@@ -222,6 +221,7 @@ export interface NodeRendererProps {
   dataOutputs?: DataOutputDefinition[];
   slots?: SlotDefinition[];
   rows?: IOPortRow[];
+  extraRows?: IOPortRow[];
   meta?: NodeMeta;
   children?: ReactNode;
 }
@@ -234,6 +234,7 @@ export const NodeRenderer = ({
   dataOutputs = definition.dataOutputs,
   slots = definition.slots,
   rows,
+  extraRows,
   meta,
   children,
 }: NodeRendererProps) => {
@@ -257,7 +258,10 @@ export const NodeRenderer = ({
     [resolvedMeta, dataInputs, dataOutputs, slots, rows, node.data.rows, node.data.portPreviews],
   );
 
-  const visibleRows = useMemo(() => clampRows(computedRows), [computedRows]);
+  const visibleRows = useMemo(() => {
+    const combined = [...computedRows, ...(extraRows ?? [])];
+    return clampRows(combined);
+  }, [computedRows, extraRows]);
 
   const updateHeight = useCallback(() => {
     const container = rowsRef.current;
@@ -283,6 +287,7 @@ export const NodeRenderer = ({
   const nodeClass = cn("oled-node", {
     disabled: node.data.disabled,
     [`family-${resolvedMeta?.family ?? definition.family}`]: true,
+    editing: Boolean((node.data as ScreepsNodeData).editing),
   });
 
   const headerStyle = {
