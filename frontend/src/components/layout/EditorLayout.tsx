@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { CanvasEditor } from "../editor/CanvasEditor";
 import { CodeGeneratorButton } from "../editor/CodeGeneratorButton";
-import { BottomDrawer } from "./BottomDrawer";
 import { FileTree } from "./FileTree";
 import { OutputPanel } from "./OutputPanel";
 import { TabsBar } from "./TabsBar";
@@ -84,7 +83,6 @@ export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
         <div className="workspace">
           <div className="canvas-wrapper">
             <CanvasEditor />
-            <BottomDrawer />
           </div>
         </div>
         <OutputPanel

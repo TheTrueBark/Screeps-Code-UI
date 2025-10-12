@@ -5,16 +5,28 @@
 @tailwind utilities;
 
 :root {
-  --color-bg-oled: #050505;
-  --color-panel: #0f0f0f;
-  --color-border: #1a1a1a;
-  --color-text: #f0f0f0;
-  --color-text-dim: #9aa0a6;
-  --color-accent-cyan: #00c8ff;
-  --color-accent-purple: #bb86fc;
-  --color-accent-yellow: #facc15;
-  --color-accent-red: #ff3b3b;
-  --color-accent-gray: #a0a0a0;
+  --bg-oled: #000000;
+  --panel: #101214;
+  --panel-2: #0f0f10;
+  --border: #1b1f23;
+  --text: #e9eef3;
+  --muted: #9aa4ae;
+  --cyan: #00c8ff;
+  --yellow: #facc15;
+  --purple: #bb86fc;
+  --danger: #ff3b3b;
+
+  /* legacy aliases */
+  --color-bg-oled: var(--bg-oled);
+  --color-panel: var(--panel);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-dim: var(--muted);
+  --color-accent-cyan: var(--cyan);
+  --color-accent-purple: var(--purple);
+  --color-accent-yellow: var(--yellow);
+  --color-accent-red: var(--danger);
+  --color-accent-gray: #8b8f97;
 }
 
 html,

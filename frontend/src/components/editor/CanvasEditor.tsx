@@ -7,6 +7,7 @@ import {
   addEdge,
   useEdgesState,
   useNodesState,
+  useOnViewportChange,
   useReactFlow,
   type Connection,
   type Edge,
@@ -29,8 +30,13 @@ import {
 } from 'react';
 import type { GraphState } from '@shared/types';
 import { useFileStore, GRAPH_STATE_VERSION } from '../../state/fileStore';
+import { getDocMarkdown, getNodeMeta } from '../../data/nodeRegistry';
 import type { ScreepsNodeData } from './NodeTypes/BaseNode';
+import type { NodeDefinition } from './NodeTypes/types';
 import { NODE_DEFINITION_MAP, NODE_TYPE_MAP } from './nodeRegistry';
+import { NodeContextBar } from './NodeContextBar';
+import { NodeHelpPopover } from './NodeHelpPopover';
+import { FloatingCatalog } from './FloatingCatalog';
 
 const nodeTypes = NODE_TYPE_MAP;
 const GRID_SIZE = 24;
@@ -59,6 +65,37 @@ const normalizeEdges = (edges: GraphState['xyflow']['edges']): Edge[] =>
     targetHandle: edge.targetHandle ?? undefined
   }));
 
+const instantiateNode = (
+  definition: NodeDefinition,
+  position: { x: number; y: number }
+): Node<ScreepsNodeData> => ({
+  id: `${definition.type}-${nanoid(6)}`,
+  type: definition.type,
+  position,
+  data: {
+    kind: definition.kind,
+    label: definition.title,
+    family: definition.family,
+    config: JSON.parse(JSON.stringify(definition.defaultConfig ?? {}))
+  }
+});
+
+const getInputLabel = (definition: NodeDefinition | undefined, handleId: string) =>
+  definition?.dataInputs?.find((input) => input.handleId === handleId)?.label;
+
+const getOutputLabel = (definition: NodeDefinition | undefined, handleId: string) => {
+  if (!definition) {
+    return undefined;
+  }
+
+  if (handleId.startsWith('slot:')) {
+    const slot = definition.slots?.find((entry) => `slot:${entry.name}` === handleId);
+    return slot?.label;
+  }
+
+  return definition.dataOutputs?.find((output) => output.handleId === handleId)?.label;
+};
+
 const buildGraphStateFromSnapshot = (
   snapshot: ReactFlowJsonObject<Node<ScreepsNodeData>, Edge>
 ): GraphState => ({
@@ -73,6 +110,7 @@ const buildGraphStateFromSnapshot = (
 
 const CanvasEditorInner = () => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const pointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isHydratingRef = useRef(false);
   const localSaveTimer = useRef<number | null>(null);
   const activeFileId = useFileStore((state) => state.activeFileId);
@@ -94,16 +132,13 @@ const CanvasEditorInner = () => {
 
   const [nodes, setNodes, applyNodeChanges] = useNodesState<Node<ScreepsNodeData>>([]);
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<Edge>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [contextPosition, setContextPosition] = useState<{ x: number; y: number } | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [catalogPinned, setCatalogPinned] = useState(false);
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
-
-  useEffect(() => {
-    nodesRef.current = nodes;
-  }, [nodes]);
-
-  useEffect(() => {
-    edgesRef.current = edges;
-  }, [edges]);
 
   const scheduleGraphSave = useCallback(
     (immediate = false) => {
@@ -141,6 +176,299 @@ const CanvasEditorInner = () => {
     },
     [activeFileId, saveActiveGraph, toObject]
   );
+
+  const spawnNode = useCallback(
+    (definition: NodeDefinition, position: { x: number; y: number }) => {
+      setNodes((current) => [...current, instantiateNode(definition, position)]);
+      scheduleGraphSave();
+    },
+    [scheduleGraphSave, setNodes]
+  );
+
+  const updateContextPosition = useCallback(() => {
+    if (!selectedNodeId) {
+      setContextPosition(null);
+      return;
+    }
+
+    const element = document.querySelector<HTMLElement>(`[data-node-id="${selectedNodeId}"]`);
+    if (!element) {
+      setContextPosition(null);
+      return;
+    }
+
+    const rect = element.getBoundingClientRect();
+    setContextPosition({ x: rect.right + 12, y: rect.bottom + 8 });
+  }, [selectedNodeId]);
+
+  const handleCatalogSpawn = useCallback(
+    (kind: string) => {
+      const definition = NODE_DEFINITION_MAP[kind];
+      if (!definition) {
+        return;
+      }
+
+      const bounds = wrapperRef.current?.getBoundingClientRect();
+      let { x, y } = pointerRef.current;
+      if (bounds) {
+        x = Math.min(Math.max(x, bounds.left + 12), bounds.right - 12);
+        y = Math.min(Math.max(y, bounds.top + 12), bounds.bottom - 12);
+      }
+
+      const position = snapPosition(screenToFlowPosition({ x, y }));
+      spawnNode(definition, position);
+    },
+    [screenToFlowPosition, spawnNode]
+  );
+
+  const applyPortPreview = useCallback(
+    (
+      targetId: string | null | undefined,
+      targetHandle: string | null | undefined,
+      sourceId: string | null | undefined,
+      sourceHandle: string | null | undefined
+    ) => {
+      if (!targetId || !targetHandle || !sourceId || !sourceHandle) {
+        return;
+      }
+
+      const sourceNode = nodesRef.current.find((node) => node.id === sourceId);
+      const targetNode = nodesRef.current.find((node) => node.id === targetId);
+      if (!sourceNode || !targetNode) {
+        return;
+      }
+
+      const sourceDefinition = NODE_DEFINITION_MAP[(sourceNode.data as ScreepsNodeData).kind];
+      const targetDefinition = NODE_DEFINITION_MAP[(targetNode.data as ScreepsNodeData).kind];
+      const previewLabel =
+        getOutputLabel(sourceDefinition, sourceHandle) ??
+        getInputLabel(targetDefinition, targetHandle) ??
+        sourceHandle;
+
+      setNodes((current) =>
+        current.map((node) => {
+          if (node.id !== targetId) {
+            return node;
+          }
+
+          const currentData = (node.data as ScreepsNodeData) ?? {
+            kind: '',
+            label: '',
+            family: 'flow',
+            config: {}
+          };
+
+          const previews = { ...(currentData.portPreviews ?? {}) };
+          previews[targetHandle] = previewLabel;
+
+          return {
+            ...node,
+            data: {
+              ...currentData,
+              portPreviews: previews
+            }
+          };
+        })
+      );
+    },
+    [setNodes]
+  );
+
+  const clearPortPreview = useCallback(
+    (targetId: string | null | undefined, targetHandle: string | null | undefined) => {
+      if (!targetId || !targetHandle) {
+        return;
+      }
+
+      setNodes((current) =>
+        current.map((node) => {
+          if (node.id !== targetId) {
+            return node;
+          }
+
+          const currentData = (node.data as ScreepsNodeData) ?? {
+            kind: '',
+            label: '',
+            family: 'flow',
+            config: {}
+          };
+
+          if (!currentData.portPreviews?.[targetHandle]) {
+            return node;
+          }
+
+          const previews = { ...(currentData.portPreviews ?? {}) };
+          delete previews[targetHandle];
+
+          return {
+            ...node,
+            data: {
+              ...currentData,
+              portPreviews: previews
+            }
+          };
+        })
+      );
+    },
+    [setNodes]
+  );
+
+  const handleSelectionChange = useCallback(
+    (params: { nodes: Node<ScreepsNodeData>[] }) => {
+      const first = params?.nodes?.[0];
+      setSelectedNodeId(first ? first.id : null);
+    },
+    []
+  );
+
+  const handleToggleNodeDisabled = useCallback(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+
+    setNodes((current) =>
+      current.map((node) => {
+        if (node.id !== selectedNodeId) {
+          return node;
+        }
+
+        const currentData = (node.data as ScreepsNodeData) ?? {
+          kind: '',
+          label: '',
+          family: 'flow',
+          config: {}
+        };
+
+        return {
+          ...node,
+          data: {
+            ...currentData,
+            disabled: !currentData.disabled
+          }
+        };
+      })
+    );
+    scheduleGraphSave();
+  }, [scheduleGraphSave, selectedNodeId, setNodes]);
+
+  const handleDeleteNode = useCallback(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+
+    setNodes((current) => current.filter((node) => node.id !== selectedNodeId));
+    setEdges((current) => current.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
+    setSelectedNodeId(null);
+    scheduleGraphSave();
+  }, [scheduleGraphSave, selectedNodeId, setEdges, setNodes]);
+
+  const handleCloseSelection = useCallback(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+
+    setNodes((current) =>
+      current.map((node) => (node.id === selectedNodeId ? { ...node, selected: false } : node))
+    );
+    setSelectedNodeId(null);
+  }, [selectedNodeId, setNodes]);
+
+  const handleCatalogOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen && catalogPinned) {
+        setCatalogPinned(false);
+      }
+      setCatalogOpen(nextOpen);
+    },
+    [catalogPinned]
+  );
+
+  const handleCatalogPinChange = useCallback((nextPinned: boolean) => {
+    setCatalogPinned(nextPinned);
+    if (nextPinned) {
+      setCatalogOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
+
+  useEffect(() => {
+    updateContextPosition();
+  }, [nodes, selectedNodeId, updateContextPosition]);
+
+  useEffect(() => {
+    setHelpOpen(false);
+  }, [selectedNodeId]);
+
+  useEffect(() => {
+    if (!wrapperRef.current) {
+      return;
+    }
+
+    const handleResize = () => {
+      if (!wrapperRef.current) {
+        return;
+      }
+      const rect = wrapperRef.current.getBoundingClientRect();
+      pointerRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      updateContextPosition();
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [updateContextPosition]);
+
+  useEffect(() => {
+    if (catalogOpen && wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      pointerRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+  }, [catalogOpen]);
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.code !== 'Space') {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (catalogPinned) {
+        setCatalogPinned(false);
+        setCatalogOpen(false);
+        return;
+      }
+
+      setCatalogOpen((prev) => !prev);
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [catalogPinned]);
+
+  useOnViewportChange({
+    onChange: () => updateContextPosition(),
+    onEnd: () => updateContextPosition()
+  });
 
   useEffect(() => () => {
     if (localSaveTimer.current) {
@@ -196,9 +524,10 @@ const CanvasEditorInner = () => {
   const onConnect = useCallback(
     (connection: Connection | Edge) => {
       setEdges((eds) => addEdge(connection, eds));
+      applyPortPreview(connection.target, connection.targetHandle, connection.source, connection.sourceHandle);
       scheduleGraphSave();
     },
-    [scheduleGraphSave, setEdges]
+    [applyPortPreview, scheduleGraphSave, setEdges]
   );
 
   const onNodesChange = useCallback(
@@ -212,9 +541,19 @@ const CanvasEditorInner = () => {
   const onEdgesChange = useCallback(
     (changes: EdgeChange<Edge>[]) => {
       applyEdgeChanges(changes);
+
+      changes
+        .filter((change) => change.type === 'remove')
+        .forEach((change) => {
+          const edge = edgesRef.current.find((entry) => entry.id === change.id);
+          if (edge) {
+            clearPortPreview(edge.target, edge.targetHandle);
+          }
+        });
+
       scheduleGraphSave();
     },
-    [applyEdgeChanges, scheduleGraphSave]
+    [applyEdgeChanges, clearPortPreview, scheduleGraphSave]
   );
 
   const onDrop = useCallback(
@@ -248,22 +587,9 @@ const CanvasEditorInner = () => {
         })
       );
 
-      const newNode: Node<ScreepsNodeData> = {
-        id: `${definition.type}-${nanoid(6)}`,
-        type: definition.type,
-        position,
-        data: {
-          kind: definition.kind,
-          label: definition.title,
-          family: definition.family,
-          config: JSON.parse(JSON.stringify(definition.defaultConfig ?? {}))
-        }
-      };
-
-      setNodes((current) => [...current, newNode]);
-      scheduleGraphSave();
+      spawnNode(definition, position);
     },
-    [activeFileId, scheduleGraphSave, screenToFlowPosition, setNodes]
+    [activeFileId, screenToFlowPosition, spawnNode]
   );
 
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
@@ -419,6 +745,26 @@ const CanvasEditorInner = () => {
     []
   );
 
+  const selectedNode = useMemo(
+    () => nodes.find((node) => node.id === selectedNodeId) ?? null,
+    [nodes, selectedNodeId]
+  );
+  const selectedMeta = selectedNode
+    ? getNodeMeta((selectedNode.data as ScreepsNodeData).kind)
+    : undefined;
+
+  const helpMarkdown = useMemo(() => {
+    if (!selectedMeta) {
+      return '';
+    }
+    return getDocMarkdown(selectedMeta.kind);
+  }, [selectedMeta]);
+
+  const isCatalogActive = catalogPinned || catalogOpen;
+  const helpAnchor = contextPosition
+    ? { x: contextPosition.x, y: contextPosition.y + 56 }
+    : null;
+
   return (
     <div
       ref={wrapperRef}
@@ -426,6 +772,16 @@ const CanvasEditorInner = () => {
       onDrop={onDrop}
       onDragOver={onDragOver}
       onWheel={handleWheel}
+      onMouseMove={(event) => {
+        pointerRef.current = { x: event.clientX, y: event.clientY };
+      }}
+      onMouseLeave={() => {
+        if (!wrapperRef.current) {
+          return;
+        }
+        const rect = wrapperRef.current.getBoundingClientRect();
+        pointerRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }}
     >
       {showFlow ? (
         <ReactFlow
@@ -444,6 +800,7 @@ const CanvasEditorInner = () => {
           zoomOnScroll={false}
           panOnScroll={false}
           className="neo-flow"
+          onSelectionChange={handleSelectionChange as any}
           onMoveEnd={() => {
             updateZoomDisplay();
             scheduleGraphSave();
@@ -464,12 +821,42 @@ const CanvasEditorInner = () => {
             );
             scheduleGraphSave();
           }}
+          onPaneMouseMove={(event) => {
+            pointerRef.current = { x: event.clientX, y: event.clientY };
+          }}
         >
           <Background gap={GRID_SIZE} color="#1c1d1f" lineWidth={1} variant={BackgroundVariant.Lines} />
         </ReactFlow>
       ) : (
         emptyState
       )}
+      <FloatingCatalog
+        open={isCatalogActive}
+        pinned={catalogPinned}
+        onOpenChange={handleCatalogOpenChange}
+        onPinChange={handleCatalogPinChange}
+        onSpawn={handleCatalogSpawn}
+        selectedMeta={selectedMeta}
+        onSelectedHelp={() => setHelpOpen(true)}
+      />
+      <NodeContextBar
+        position={contextPosition}
+        visible={Boolean(selectedNodeId)}
+        paused={Boolean((selectedNode?.data as ScreepsNodeData | undefined)?.disabled)}
+        pinned={catalogPinned}
+        onPause={handleToggleNodeDisabled}
+        onPinToggle={() => handleCatalogPinChange(!catalogPinned)}
+        onHelp={() => setHelpOpen((prev) => !prev)}
+        onDelete={handleDeleteNode}
+        onClose={handleCloseSelection}
+      />
+      <NodeHelpPopover
+        open={helpOpen && Boolean(selectedMeta)}
+        anchor={helpAnchor}
+        title={selectedMeta?.title ?? ''}
+        markdown={helpMarkdown}
+        onClose={() => setHelpOpen(false)}
+      />
       <div className="canvas-toolbar">
         <div className="canvas-toolbar-status">
           <span className="status-indicator" aria-hidden />

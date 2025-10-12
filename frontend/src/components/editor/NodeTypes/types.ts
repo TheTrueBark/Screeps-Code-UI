@@ -1,7 +1,6 @@
 import type { NodeIR } from '@shared/types';
 import type { NodeProps } from '@xyflow/react';
-
-export type NodeFamily = 'flow' | 'query' | 'creep' | 'structure' | 'memory' | 'task';
+import type { NodeFamily } from '../../../data/nodeRegistry/schema';
 
 export type ConfigField =
   | {
