@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Neighborhood",
   subtitle: "Query",
   description: "Gather room terrain or structures in the surrounding area.",
-  family: "query",
+  family: "queryTargeting",
   category: "Query & Targeting",
   defaultConfig: {
     mode: "lookAt",

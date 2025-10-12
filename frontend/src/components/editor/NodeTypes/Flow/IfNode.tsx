@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "If",
   subtitle: "Branch",
   description: "Branch execution depending on a boolean condition.",
-  family: "flow",
+  family: "flowControl",
   category: "Flow & Control",
   defaultConfig: {
     condition: "creep.store.getFreeCapacity() === 0",

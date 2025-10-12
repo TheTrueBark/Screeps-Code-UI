@@ -9,7 +9,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Creep",
   description:
     "Move a creep using the selected pathing adapter and parameters.",
-  family: "creep",
+  family: "creepActions",
   category: "Creep Actions",
   defaultConfig: {
     adapter: "Traveler",

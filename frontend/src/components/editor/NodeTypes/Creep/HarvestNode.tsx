@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Harvest",
   subtitle: "Creep",
   description: "Harvest energy or minerals from a source target.",
-  family: "creep",
+  family: "creepActions",
   category: "Creep Actions",
   defaultConfig: {
     fallback: "moveTo",

@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Loop control",
   description:
     "Control loop execution by breaking or continuing to next iteration.",
-  family: "flow",
+  family: "flowControl",
   category: "Flow & Control",
   defaultConfig: {
     mode: "break",

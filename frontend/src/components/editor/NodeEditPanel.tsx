@@ -15,7 +15,7 @@ import type { NodeDefinition } from "./NodeTypes/types";
 const FALLBACK_DATA: ScreepsNodeData = {
   kind: "",
   label: "",
-  family: "flow",
+  family: "flowControl",
   config: {},
 };
 

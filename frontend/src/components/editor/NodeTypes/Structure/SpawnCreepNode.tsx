@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Structure",
   description:
     "Spawn a new creep with configurable body strategy and memory template.",
-  family: "structure",
+  family: "structureLogic",
   category: "Structure Logic",
   defaultConfig: {
     namePrefix: "worker",

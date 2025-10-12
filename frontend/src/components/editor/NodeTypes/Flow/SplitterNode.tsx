@@ -11,7 +11,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Fan-out",
   description:
     "Duplicate the downstream flow into multiple sequential branches.",
-  family: "flow",
+  family: "flowControl",
   category: "Flow & Control",
   defaultConfig: {
     branches: 2,
@@ -34,7 +34,7 @@ export const SplitterNode = (props: NodeProps) => {
     config: {},
     kind: "",
     label: "",
-    family: "flow",
+    family: "flowControl",
   };
   const branchCount = Math.max(
     2,

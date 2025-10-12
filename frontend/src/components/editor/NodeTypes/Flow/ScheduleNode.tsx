@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Timing",
   description:
     "Gate execution to run every N ticks or when tick modulo matches.",
-  family: "flow",
+  family: "flowControl",
   category: "Flow & Control",
   defaultConfig: {
     mode: "every",

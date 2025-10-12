@@ -163,7 +163,7 @@ export const BottomDrawer = () => {
                   </span>
                 </div>
                 <span className="node-drawer-tile-family">
-                  {definition.family}
+                  {definition.category}
                 </span>
               </button>
             ))}

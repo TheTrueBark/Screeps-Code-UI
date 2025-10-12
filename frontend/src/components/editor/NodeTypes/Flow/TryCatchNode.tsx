@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Try / Catch",
   subtitle: "Error control",
   description: "Execute a block and recover from runtime errors gracefully.",
-  family: "flow",
+  family: "flowControl",
   category: "Flow & Control",
   defaultConfig: {
     errorVar: "err",

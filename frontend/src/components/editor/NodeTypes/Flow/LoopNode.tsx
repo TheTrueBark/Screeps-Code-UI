@@ -8,7 +8,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Loop",
   subtitle: "Iteration",
   description: "Repeat a block using for/while semantics with guard rails.",
-  family: "flow",
+  family: "flowControl",
   category: "Flow & Control",
   defaultConfig: {
     loopType: "while",

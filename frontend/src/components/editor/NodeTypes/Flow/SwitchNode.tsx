@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Switch",
   subtitle: "Branch",
   description: "Match against cases and route execution to matching branches.",
-  family: "flow",
+  family: "flowControl",
   category: "Flow & Control",
   defaultConfig: {
     key: "creep.memory.role",

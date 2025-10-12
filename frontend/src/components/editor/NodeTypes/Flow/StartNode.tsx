@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Start",
   subtitle: "Entry",
   description: "Entry point executed once per tick for the active file.",
-  family: "flow",
+  family: "flowControl",
   category: "Flow & Control",
   defaultConfig: {
     label: "Tick entry",

@@ -13,7 +13,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Terminal Market",
   subtitle: "Structure",
   description: "Execute market buy, sell or deal operations via terminal.",
-  family: "structure",
+  family: "structureLogic",
   category: "Structure Logic",
   defaultConfig: {
     mode: "sell",

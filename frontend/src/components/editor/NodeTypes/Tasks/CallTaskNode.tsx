@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Call Task",
   subtitle: "Tasks",
   description: "Invoke a previously defined task with arguments.",
-  family: "task",
+  family: "taskMacro",
   category: "Tasks",
   defaultConfig: {
     taskName: "refill",

@@ -9,7 +9,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   subtitle: "Tasks",
   description:
     "Create a named callable task with its own entry branch and parameter schema.",
-  family: "task",
+  family: "taskMacro",
   category: "Tasks",
   defaultConfig: {
     taskName: "refill",

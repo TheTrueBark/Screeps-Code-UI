@@ -357,7 +357,7 @@ const CanvasEditorInner = () => {
           const currentData = (node.data as ScreepsNodeData) ?? {
             kind: "",
             label: "",
-            family: "flow",
+            family: "flowControl",
             config: {},
           };
 
@@ -430,7 +430,7 @@ const CanvasEditorInner = () => {
         const data = (node.data as ScreepsNodeData) ?? {
           kind: "",
           label: "",
-          family: "flow",
+          family: "flowControl",
           config: {},
         };
 
@@ -475,7 +475,7 @@ const CanvasEditorInner = () => {
     const sourceData = (source.data as ScreepsNodeData) ?? {
       kind: "",
       label: "",
-      family: "flow",
+      family: "flowControl",
       config: {},
     };
 
@@ -522,7 +522,7 @@ const CanvasEditorInner = () => {
           const currentData = (node.data as ScreepsNodeData) ?? {
             kind: "",
             label: "",
-            family: "flow",
+            family: "flowControl",
             config: {},
           };
 
@@ -555,7 +555,7 @@ const CanvasEditorInner = () => {
           const data = (node.data as ScreepsNodeData) ?? {
             kind: "",
             label: "",
-            family: "flow",
+            family: "flowControl",
             config: {},
           };
 
@@ -900,7 +900,7 @@ const CanvasEditorInner = () => {
           const data = (node.data as ScreepsNodeData) ?? {
             kind: "",
             label: "",
-            family: "flow",
+            family: "flowControl",
             config: {},
           };
           const definition = NODE_DEFINITION_MAP[data.kind];

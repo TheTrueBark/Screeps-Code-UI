@@ -7,7 +7,7 @@ const baseDefinition: Omit<NodeDefinition, "Component"> = {
   title: "Upgrade Controller",
   subtitle: "Creep",
   description: "Upgrade the room controller with available energy.",
-  family: "creep",
+  family: "creepActions",
   category: "Creep Actions",
   defaultConfig: {
     boost: false,
