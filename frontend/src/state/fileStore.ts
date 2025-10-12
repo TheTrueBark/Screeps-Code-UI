@@ -1,16 +1,58 @@
-import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 import type { GraphState } from '@shared/types';
-import {
-  addNodeToTree,
-  createUniqueName,
-  findNodeById,
-  renameNodeInTree,
-  updateNodeInTree,
-  type FileNode,
-  type FolderNode,
-  type TreeNode
-} from '../utils/fileHelpers';
+import { findEntryById, listFileIds, type FileEntry } from '../utils/fileHelpers';
+
+export const GRAPH_STATE_VERSION = 1;
+const SAVE_DEBOUNCE_MS = 600;
+
+const defaultViewport = { x: 0, y: 0, zoom: 1 } as const;
+
+const storageIndexKey = (workspaceId: string) => `sv_ide:${workspaceId}:index`;
+const storageFileKey = (workspaceId: string, fileId: string) => `sv_ide:${workspaceId}:file:${fileId}`;
+
+const createEmptyGraphState = (): GraphState => ({
+  version: GRAPH_STATE_VERSION,
+  xyflow: {
+    nodes: [],
+    edges: [],
+    viewport: { ...defaultViewport }
+  },
+  updatedAt: Date.now()
+});
+
+const normalizeGraphState = (graph: Partial<GraphState> | null | undefined): GraphState => {
+  if (!graph) {
+    return createEmptyGraphState();
+  }
+
+  const nodes = Array.isArray(graph.xyflow?.nodes) ? graph.xyflow?.nodes ?? [] : [];
+  const edges = Array.isArray(graph.xyflow?.edges) ? graph.xyflow?.edges ?? [] : [];
+  const viewport = graph.xyflow?.viewport ?? defaultViewport;
+
+  return {
+    version: typeof graph.version === 'number' ? graph.version : GRAPH_STATE_VERSION,
+    xyflow: {
+      nodes,
+      edges,
+      viewport: {
+        x: typeof viewport?.x === 'number' ? viewport.x : defaultViewport.x,
+        y: typeof viewport?.y === 'number' ? viewport.y : defaultViewport.y,
+        zoom: typeof viewport?.zoom === 'number' ? viewport.zoom : defaultViewport.zoom
+      }
+    },
+    updatedAt: typeof graph.updatedAt === 'number' ? graph.updatedAt : Date.now()
+  } satisfies GraphState;
+};
+
+const timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+type SaveStatus = 'idle' | 'saving' | 'saved';
+
+type FileSaveState = {
+  status: SaveStatus;
+  dirty: boolean;
+  lastSavedAt?: number;
+};
 
 type OpenTab = {
   id: string;
@@ -18,215 +60,367 @@ type OpenTab = {
 };
 
 interface FileStoreState {
-  tree: TreeNode[];
+  workspaceId: string;
+  fileTree: FileEntry[];
   openTabs: OpenTab[];
   activeFileId: string | null;
   collapsedFolders: Record<string, boolean>;
+  graphs: Record<string, GraphState>;
+  saveStates: Record<string, FileSaveState>;
   graphSerializer: (() => GraphState | null) | null;
+  sidebarCollapsed: boolean;
+  initWorkspace: (workspaceId: string, tree: FileEntry[]) => void;
+  hydrateFromStorage: () => void;
+  serializeToStorage: () => void;
+  ensureGraphForFile: (fileId: string) => void;
   openFile: (fileId: string) => void;
   closeTab: (fileId: string) => void;
   setActiveFile: (fileId: string) => void;
-  createFile: (parentId: string | null) => string;
-  createFolder: (parentId: string | null) => string;
-  renameItem: (id: string, name: string) => void;
   toggleFolder: (folderId: string) => void;
   registerGraphSerializer: (serializer: (() => GraphState | null) | null) => void;
-  persistActiveGraph: () => void;
-  setFileGraphState: (fileId: string, graph: GraphState) => void;
-  getGraphState: (fileId: string) => GraphState | undefined;
-  getFileById: (id: string) => FileNode | undefined;
+  saveGraphForFile: (fileId: string, graph: GraphState, options?: { immediate?: boolean }) => void;
+  saveActiveGraph: (graph: GraphState, options?: { immediate?: boolean }) => void;
+  getGraphState: (fileId: string) => GraphState | null;
+  flushPendingSaves: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebarCollapsed: () => void;
 }
 
-const initialTree: TreeNode[] = [
-  {
-    id: 'roles',
-    name: 'roles',
-    type: 'folder',
-    children: [
-      {
-        id: 'roles-harvester',
-        name: 'harvester.ts',
-        type: 'file'
-      },
-      {
-        id: 'roles-hauler',
-        name: 'hauler.ts',
-        type: 'file'
-      }
-    ]
-  } satisfies FolderNode,
-  {
-    id: 'utils',
-    name: 'utils',
-    type: 'folder',
-    children: [
-      {
-        id: 'utils-logger',
-        name: 'logger.ts',
-        type: 'file'
-      }
-    ]
-  } satisfies FolderNode
-];
+const persistIndex = (workspaceId: string, fileIds: string[], lastOpenedFileId: string | null) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const payload = {
+      version: 1,
+      lastOpenedFileId,
+      files: fileIds
+    };
+    window.localStorage.setItem(storageIndexKey(workspaceId), JSON.stringify(payload));
+  } catch (error) {
+    console.warn('Failed to persist workspace index', error);
+  }
+};
+
+const persistGraph = (workspaceId: string, fileId: string, graph: GraphState) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(storageFileKey(workspaceId, fileId), JSON.stringify(graph));
+  } catch (error) {
+    console.warn(`Failed to persist graph for ${fileId}`, error);
+  }
+};
+
+const readIndex = (workspaceId: string): { lastOpenedFileId: string | null } | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(storageIndexKey(workspaceId));
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as { lastOpenedFileId?: string | null };
+    return {
+      lastOpenedFileId: typeof parsed.lastOpenedFileId === 'string' ? parsed.lastOpenedFileId : null
+    };
+  } catch (error) {
+    console.warn('Failed to parse workspace index', error);
+    return null;
+  }
+};
+
+const readGraph = (workspaceId: string, fileId: string): GraphState | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(storageFileKey(workspaceId, fileId));
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<GraphState>;
+    return normalizeGraphState(parsed);
+  } catch (error) {
+    console.warn(`Failed to parse graph for ${fileId}`, error);
+    return null;
+  }
+};
 
 export const useFileStore = create<FileStoreState>((set, get) => ({
-  tree: initialTree,
+  workspaceId: '',
+  fileTree: [],
   openTabs: [],
   activeFileId: null,
   collapsedFolders: {},
+  graphs: {},
+  saveStates: {},
   graphSerializer: null,
-  openFile: (fileId) => {
-    const { tree, openTabs, persistActiveGraph } = get();
-    persistActiveGraph();
-    const node = findNodeById(tree, fileId);
-    if (!node || node.type !== 'file') {
-      return;
-    }
+  sidebarCollapsed: false,
+  initWorkspace: (workspaceId, tree) => {
+    const fileIds = listFileIds(tree);
+    const initialGraphs: Record<string, GraphState> = {};
+    const initialSaveStates: Record<string, FileSaveState> = {};
 
-    const alreadyOpen = openTabs.some((tab) => tab.id === fileId);
-    const nextTabs = alreadyOpen
-      ? openTabs
-      : [...openTabs, { id: fileId, name: node.name }];
-
-    set({ openTabs: nextTabs, activeFileId: fileId });
-  },
-  closeTab: (fileId) => {
-    const { openTabs, activeFileId, persistActiveGraph } = get();
-    if (activeFileId === fileId) {
-      persistActiveGraph();
-    }
-    const nextTabs = openTabs.filter((tab) => tab.id !== fileId);
-    const isActive = activeFileId === fileId;
-
-    const lastTab = nextTabs.length > 0 ? nextTabs[nextTabs.length - 1] : undefined;
+    fileIds.forEach((fileId) => {
+      initialGraphs[fileId] = createEmptyGraphState();
+      initialSaveStates[fileId] = { status: 'saved', dirty: false, lastSavedAt: Date.now() };
+    });
 
     set({
-      openTabs: nextTabs,
-      activeFileId: isActive ? lastTab?.id ?? null : activeFileId
+      workspaceId,
+      fileTree: tree,
+      graphs: initialGraphs,
+      saveStates: initialSaveStates
+    });
+
+    get().hydrateFromStorage();
+  },
+  hydrateFromStorage: () => {
+    const { workspaceId, fileTree } = get();
+    if (!workspaceId || fileTree.length === 0) {
+      return;
+    }
+
+    const fileIds = listFileIds(fileTree);
+    const index = readIndex(workspaceId);
+    const hydratedGraphs: Record<string, GraphState> = {};
+    const hydratedSaves: Record<string, FileSaveState> = {};
+
+    fileIds.forEach((fileId) => {
+      const stored = readGraph(workspaceId, fileId);
+      const graph = stored ?? createEmptyGraphState();
+      hydratedGraphs[fileId] = graph;
+      hydratedSaves[fileId] = {
+        status: 'saved',
+        dirty: false,
+        lastSavedAt: graph.updatedAt
+      };
+    });
+
+    const fallbackActive = fileIds[0] ?? null;
+    const activeFileId = index?.lastOpenedFileId && fileIds.includes(index.lastOpenedFileId)
+      ? index.lastOpenedFileId
+      : fallbackActive;
+
+    const openTabs = activeFileId
+      ? [
+          {
+            id: activeFileId,
+            name: findEntryById(fileTree, activeFileId)?.name ?? activeFileId
+          }
+        ]
+      : [];
+
+    set({
+      graphs: hydratedGraphs,
+      saveStates: hydratedSaves,
+      activeFileId,
+      openTabs
     });
   },
-  setActiveFile: (fileId) => {
-    const { openTabs, activeFileId, persistActiveGraph } = get();
+  serializeToStorage: () => {
+    const { workspaceId, fileTree, graphs, activeFileId } = get();
+    if (!workspaceId) {
+      return;
+    }
+
+    const fileIds = listFileIds(fileTree);
+    persistIndex(workspaceId, fileIds, activeFileId);
+
+    fileIds.forEach((fileId) => {
+      const graph = graphs[fileId] ?? createEmptyGraphState();
+      persistGraph(workspaceId, fileId, graph);
+    });
+  },
+  ensureGraphForFile: (fileId) => {
+    const { graphs } = get();
+    if (graphs[fileId]) {
+      return;
+    }
+
+    set(({ graphs: current, saveStates }) => ({
+      graphs: {
+        ...current,
+        [fileId]: createEmptyGraphState()
+      },
+      saveStates: {
+        ...saveStates,
+        [fileId]: { status: 'saved', dirty: false, lastSavedAt: Date.now() }
+      }
+    }));
+  },
+  openFile: (fileId) => {
+    const { fileTree, openTabs, graphSerializer, activeFileId, workspaceId } = get();
     if (activeFileId === fileId) {
       return;
     }
-    persistActiveGraph();
-    if (!openTabs.some((tab) => tab.id === fileId)) {
+
+    const entry = findEntryById(fileTree, fileId);
+    if (!entry || entry.kind !== 'file') {
       return;
+    }
+
+    if (graphSerializer && activeFileId) {
+      const snapshot = graphSerializer();
+      if (snapshot) {
+        get().saveGraphForFile(activeFileId, snapshot, { immediate: true });
+      }
+    }
+
+    get().ensureGraphForFile(fileId);
+
+    const nextTabs = openTabs.some((tab) => tab.id === fileId)
+      ? openTabs
+      : [...openTabs, { id: fileId, name: entry.name }];
+
+    set({ openTabs: nextTabs, activeFileId: fileId });
+
+    if (workspaceId) {
+      const fileIds = listFileIds(fileTree);
+      persistIndex(workspaceId, fileIds, fileId);
+    }
+  },
+  closeTab: (fileId) => {
+    const { openTabs, activeFileId, fileTree, workspaceId } = get();
+    const nextTabs = openTabs.filter((tab) => tab.id !== fileId);
+
+    let nextActive = activeFileId;
+    if (activeFileId === fileId) {
+      nextActive = nextTabs.length > 0 ? nextTabs[nextTabs.length - 1].id : null;
+    }
+
+    set({ openTabs: nextTabs, activeFileId: nextActive });
+
+    if (workspaceId) {
+      const fileIds = listFileIds(fileTree);
+      persistIndex(workspaceId, fileIds, nextActive);
+    }
+  },
+  setActiveFile: (fileId) => {
+    const { openTabs, activeFileId, graphSerializer, fileTree, workspaceId } = get();
+    if (activeFileId === fileId || !openTabs.some((tab) => tab.id === fileId)) {
+      return;
+    }
+
+    if (graphSerializer && activeFileId) {
+      const snapshot = graphSerializer();
+      if (snapshot) {
+        get().saveGraphForFile(activeFileId, snapshot, { immediate: true });
+      }
     }
 
     set({ activeFileId: fileId });
-  },
-  createFile: (parentId) => {
-    const { tree } = get();
-    const name = `${createUniqueName(tree, parentId, 'New File')}.ts`;
-    const id = nanoid();
-    const file: FileNode = {
-      id,
-      name,
-      type: 'file'
-    };
 
-    set({
-      tree: addNodeToTree(tree, parentId, file)
-    });
-
-    return id;
-  },
-  createFolder: (parentId) => {
-    const { tree } = get();
-    const name = createUniqueName(tree, parentId, 'New Folder');
-    const id = nanoid();
-    const folder: FolderNode = {
-      id,
-      name,
-      type: 'folder',
-      children: []
-    };
-
-    set({
-      tree: addNodeToTree(tree, parentId, folder)
-    });
-
-    return id;
-  },
-  renameItem: (id, name) => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      return;
+    if (workspaceId) {
+      const fileIds = listFileIds(fileTree);
+      persistIndex(workspaceId, fileIds, fileId);
     }
-
-    const { tree, openTabs } = get();
-    const renamedTree = renameNodeInTree(tree, id, trimmed);
-    const updatedTabs = openTabs.map((tab) =>
-      tab.id === id
-        ? {
-            ...tab,
-            name: trimmed
-          }
-        : tab
-    );
-
-    set({ tree: renamedTree, openTabs: updatedTabs });
   },
   toggleFolder: (folderId) => {
-    const { collapsedFolders } = get();
-    set({
+    set(({ collapsedFolders }) => ({
       collapsedFolders: {
         ...collapsedFolders,
         [folderId]: !collapsedFolders[folderId]
       }
-    });
+    }));
   },
   registerGraphSerializer: (serializer) => {
     set({ graphSerializer: serializer });
   },
-  persistActiveGraph: () => {
-    const { activeFileId, graphSerializer, setFileGraphState } = get();
-    if (!activeFileId || !graphSerializer) {
-      return;
-    }
+  saveGraphForFile: (fileId, graph, options) => {
+    const normalized = normalizeGraphState(graph);
 
-    const snapshot = graphSerializer();
-    if (!snapshot) {
-      return;
-    }
+    set(({ graphs, saveStates }) => ({
+      graphs: {
+        ...graphs,
+        [fileId]: normalized
+      },
+      saveStates: {
+        ...saveStates,
+        [fileId]: {
+          status: options?.immediate ? 'saved' : 'saving',
+          dirty: !options?.immediate,
+          lastSavedAt: options?.immediate ? normalized.updatedAt : saveStates[fileId]?.lastSavedAt
+        }
+      }
+    }));
 
-    setFileGraphState(activeFileId, snapshot);
-  },
-  setFileGraphState: (fileId, graph) => {
-    const { tree } = get();
-    const updatedTree = updateNodeInTree(tree, fileId, (node) => {
-      if (node.type !== 'file') {
-        return node;
+    const runCommit = () => {
+      timers.delete(fileId);
+      const { workspaceId, graphs, fileTree, activeFileId } = get();
+      if (!workspaceId) {
+        return;
       }
 
-      return {
-        ...node,
-        graphState: graph
-      } satisfies FileNode;
-    });
+      const fileIds = listFileIds(fileTree);
+      persistGraph(workspaceId, fileId, graphs[fileId] ?? createEmptyGraphState());
+      persistIndex(workspaceId, fileIds, activeFileId);
 
-    set({ tree: updatedTree });
+      set(({ saveStates }) => ({
+        saveStates: {
+          ...saveStates,
+          [fileId]: {
+            status: 'saved',
+            dirty: false,
+            lastSavedAt: graphs[fileId]?.updatedAt ?? Date.now()
+          }
+        }
+      }));
+    };
+
+    if (options?.immediate) {
+      runCommit();
+      return;
+    }
+
+    const existing = timers.get(fileId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    const timer = setTimeout(runCommit, SAVE_DEBOUNCE_MS);
+    timers.set(fileId, timer);
+  },
+  saveActiveGraph: (graph, options) => {
+    const { activeFileId } = get();
+    if (!activeFileId) {
+      return;
+    }
+
+    get().saveGraphForFile(activeFileId, graph, options);
   },
   getGraphState: (fileId) => {
-    const { tree } = get();
-    const node = findNodeById(tree, fileId);
-    if (node && node.type === 'file') {
-      return node.graphState;
-    }
-
-    return undefined;
+    const { graphs } = get();
+    return graphs[fileId] ?? null;
   },
-  getFileById: (id) => {
-    const { tree } = get();
-    const node = findNodeById(tree, id);
-    if (node && node.type === 'file') {
-      return node;
-    }
+  flushPendingSaves: () => {
+    Array.from(timers.keys()).forEach((fileId) => {
+      const timer = timers.get(fileId);
+      if (timer) {
+        clearTimeout(timer);
+        timers.delete(fileId);
+      }
 
-    return undefined;
+      get().saveGraphForFile(fileId, get().graphs[fileId] ?? createEmptyGraphState(), {
+        immediate: true
+      });
+    });
+  },
+  setSidebarCollapsed: (collapsed) => {
+    set({ sidebarCollapsed: collapsed });
+  },
+  toggleSidebarCollapsed: () => {
+    set(({ sidebarCollapsed }) => ({ sidebarCollapsed: !sidebarCollapsed }));
   }
 }));
 
-export type { FileNode, FolderNode, TreeNode };
+export type { FileEntry, FileSaveState, SaveStatus };

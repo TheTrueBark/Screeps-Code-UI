@@ -25,6 +25,20 @@ npm run dev
 └── README.md
 ```
 
+## Arbeitsstände je Datei
+
+Der Node-Editor speichert für jede Datei im linken Baum einen eigenen Graph-Zustand
+(Nodes, Edges, Viewport) unter `localStorage`. Der Namespace lautet
+`sv_ide:<workspaceId>:...`, wobei die Workspace-ID derzeit `screeps-dev` ist.
+
+- Beim Dateiwechsel wird der aktuelle Canvas-Stand automatisch gesichert und beim
+  erneuten Öffnen wiederhergestellt.
+- Beim Refresh oder Browser-Neustart lädt die App den zuletzt geöffneten Tab sowie
+  alle gespeicherten Graphen wieder.
+
+Um die gespeicherten Zustände zurückzusetzen, können die entsprechenden Keys im
+`localStorage` entfernt werden.
+
 ## Eigene Nodes erstellen
 
 Custom Nodes werden im Ordner [`frontend/src/components/nodes`](frontend/src/components/nodes) abgelegt. Jede Datei exportiert sowohl ein React-Komponent für die Darstellung im Canvas als auch optionale Konfigurationsdaten (z. B. Default-Ports). Registriere den Node in `FlowCanvas.tsx`, damit Xyflow ihn kennt.

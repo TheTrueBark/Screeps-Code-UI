@@ -70,6 +70,27 @@ export interface GraphNodeData extends Record<string, unknown> {
   warnings?: string[];
 }
 
+export interface XyflowSnapshot {
+  nodes: Array<{
+    id: string;
+    type?: string;
+    position: { x: number; y: number };
+    data?: Record<string, unknown>;
+  }>;
+  edges: Array<{
+    id?: string;
+    source: string;
+    target: string;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
+  }>;
+  viewport?: {
+    x: number;
+    y: number;
+    zoom: number;
+  };
+}
+
 export interface GraphNode {
   id: string;
   type: string;
@@ -86,8 +107,9 @@ export interface GraphEdge {
 }
 
 export interface GraphState {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
+  version: number;
+  xyflow: XyflowSnapshot;
+  updatedAt: number;
 }
 
 export interface CompilerResult {

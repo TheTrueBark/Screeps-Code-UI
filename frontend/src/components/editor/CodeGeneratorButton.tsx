@@ -1,7 +1,5 @@
 import { useCallback } from 'react';
-import type { GraphNodeData } from '@shared/types';
 import { useFileStore } from '../../state/fileStore';
-import { useNodeStore } from '../../state/nodeStore';
 import { compileGraph } from '../../compiler';
 import { cn } from '../../utils/classNames';
 
@@ -15,65 +13,40 @@ type CodeGeneratorButtonProps = {
  */
 export const CodeGeneratorButton = ({ onGenerated, className }: CodeGeneratorButtonProps) => {
   const activeFileId = useFileStore((state) => state.activeFileId);
-  const getFileById = useFileStore((state) => state.getFileById);
-  const serializeGraph = useNodeStore((state) => state.serializeGraph);
-  const getGraphState = useNodeStore((state) => state.getGraphForFile);
-  const setGraphState = useNodeStore((state) => state.setGraphState);
+  const getGraphState = useFileStore((state) => state.getGraphState);
 
   const handleGenerate = useCallback(() => {
     if (!activeFileId) {
       return;
     }
 
-    const file = getFileById(activeFileId);
-    const graph = serializeGraph(activeFileId);
+    const graph = getGraphState(activeFileId);
+    if (!graph) {
+      onGenerated?.('// Nothing to compile yet. Draw a graph for the active file.');
+      return;
+    }
+
     const result = compileGraph(activeFileId, graph);
 
-    const flowGraph = getGraphState(activeFileId);
-    const errorsByNode = new Map<string, string[]>();
-    result.errors.forEach((diagnostic) => {
-      if (!diagnostic.nodeId) {
-        return;
-      }
-      const current = errorsByNode.get(diagnostic.nodeId) ?? [];
-      current.push(diagnostic.message);
-      errorsByNode.set(diagnostic.nodeId, current);
-    });
-
-    const warningsByNode = new Map<string, string[]>();
-    result.warnings.forEach((diagnostic) => {
-      if (!diagnostic.nodeId) {
-        return;
-      }
-      const current = warningsByNode.get(diagnostic.nodeId) ?? [];
-      current.push(diagnostic.message);
-      warningsByNode.set(diagnostic.nodeId, current);
-    });
-
-    const annotatedNodes = flowGraph.nodes.map((node) => ({
-      ...node,
-      data: {
-        ...(node.data as GraphNodeData),
-        errors: errorsByNode.get(node.id),
-        warnings: warningsByNode.get(node.id)
-      }
-    }));
-
-    setGraphState(activeFileId, annotatedNodes, flowGraph.edges);
-
     if (result.errors.length > 0) {
-      console.group(`Compile errors for ${file?.name ?? activeFileId}`);
+      console.group(`Compile errors for ${activeFileId}`);
       result.errors.forEach((error) => console.error(error.message));
       console.groupEnd();
       onGenerated?.('// Compilation failed. Resolve node errors to generate code.');
       return;
     }
 
-    console.group(`Generated TypeScript for ${file?.name ?? activeFileId}`);
+    if (result.warnings.length > 0) {
+      console.group(`Compile warnings for ${activeFileId}`);
+      result.warnings.forEach((warning) => console.warn(warning.message));
+      console.groupEnd();
+    }
+
+    console.group(`Generated TypeScript for ${activeFileId}`);
     console.log(result.code);
     console.groupEnd();
     onGenerated?.(result.code);
-  }, [activeFileId, getFileById, getGraphState, onGenerated, serializeGraph, setGraphState]);
+  }, [activeFileId, getGraphState, onGenerated]);
 
   return (
     <button

@@ -1,4 +1,4 @@
-import type { FileIR, GraphState, NodeIR, PortRef } from '@shared/types';
+import type { FileIR, GraphEdge, GraphNode, GraphState, NodeIR, PortRef } from '@shared/types';
 import { NODE_DEFINITION_MAP } from '../components/editor/nodeRegistry';
 import type { NodeDefinition } from '../components/editor/NodeTypes/types';
 
@@ -15,11 +15,31 @@ const cloneConfig = (config: Record<string, unknown> | undefined) =>
 
 const getDefinition = (kind: string): NodeDefinition | undefined => NODE_DEFINITION_MAP[kind];
 
+const getGraphNodes = (graph: GraphState): GraphNode[] =>
+  (graph.xyflow.nodes ?? []).map((node) => ({
+    id: node.id,
+    type: node.type ?? '',
+    position: node.position,
+    data: (node.data ?? {}) as GraphNode['data']
+  }));
+
+const getGraphEdges = (graph: GraphState): GraphEdge[] =>
+  (graph.xyflow.edges ?? []).map((edge) => ({
+    id: edge.id ?? `${edge.source}-${edge.target}`,
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle ?? null,
+    targetHandle: edge.targetHandle ?? null
+  }));
+
 export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult => {
   const errors: Array<{ nodeId?: string; message: string }> = [];
   const warnings: Array<{ nodeId?: string; message: string }> = [];
 
-  if (!graph.nodes.length) {
+  const nodes = getGraphNodes(graph);
+  const edges = getGraphEdges(graph);
+
+  if (nodes.length === 0) {
     return {
       file: null,
       errors: [{ message: 'Graph is empty. Add nodes to compile.' }],
@@ -27,11 +47,10 @@ export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult =>
     };
   }
 
-  type GraphEdge = GraphState['edges'][number];
   const edgesFrom = new Map<string, GraphEdge[]>();
   const edgesTo = new Map<string, GraphEdge[]>();
 
-  graph.edges.forEach((edge) => {
+  edges.forEach((edge) => {
     if (!edgesFrom.has(edge.source)) {
       edgesFrom.set(edge.source, []);
     }
@@ -48,7 +67,7 @@ export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult =>
   const taskDefs: FileIR['taskDefs'] = [];
   const definedTasks = new Map<string, { params: Array<{ key: string; type: string; default?: unknown }>; nodeId: string }>();
 
-  graph.nodes.forEach((node) => {
+  nodes.forEach((node) => {
     const definition = getDefinition(node.data.kind);
     if (!definition) {
       errors.push({
