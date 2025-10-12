@@ -1,4 +1,5 @@
 import type { NodeTypes } from '@xyflow/react';
+import { getNodeMeta } from '../../data/nodeRegistry';
 import type { NodeDefinition } from './NodeTypes/types';
 import { StartNode, startNodeDefinition } from './NodeTypes/Flow/StartNode';
 import { IfNode, ifNodeDefinition } from './NodeTypes/Flow/IfNode';
@@ -33,6 +34,21 @@ import { MemoryDeleteNode, memoryDeleteNodeDefinition } from './NodeTypes/Memory
 import { DefineTaskNode, defineTaskNodeDefinition } from './NodeTypes/Tasks/DefineTaskNode';
 import { CallTaskNode, callTaskNodeDefinition } from './NodeTypes/Tasks/CallTaskNode';
 
+const withMetadata = (definition: NodeDefinition): NodeDefinition => {
+  const meta = getNodeMeta(definition.kind);
+  if (!meta) {
+    return definition;
+  }
+
+  return {
+    ...definition,
+    title: meta.title,
+    description: meta.docs.summary,
+    family: meta.family,
+    category: meta.category ?? definition.category ?? meta.family,
+  };
+};
+
 export const NODE_DEFINITIONS: NodeDefinition[] = [
   startNodeDefinition,
   ifNodeDefinition,
@@ -66,7 +82,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   memoryDeleteNodeDefinition,
   defineTaskNodeDefinition,
   callTaskNodeDefinition
-];
+].map(withMetadata);
 
 export const NODE_DEFINITION_MAP: Record<string, NodeDefinition> = Object.fromEntries(
   NODE_DEFINITIONS.map((definition) => [definition.kind, definition])

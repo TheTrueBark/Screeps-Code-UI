@@ -1,22 +1,22 @@
 import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { listAllMeta } from "../../data/nodeRegistry";
+import type { NodeMeta } from "../../data/nodeRegistry/schema";
 import { useFileStore } from "../../state/fileStore";
 import { cn } from "../../utils/classNames";
-import { NODE_DEFINITIONS } from "../editor/nodeRegistry";
-import type { NodeDefinition } from "../editor/NodeTypes/types";
 
 type Group = {
   category: string;
-  nodes: NodeDefinition[];
+  nodes: NodeMeta[];
 };
 
 const groupDefinitions = (): Group[] => {
-  const groups = new Map<string, NodeDefinition[]>();
-  NODE_DEFINITIONS.forEach((definition) => {
-    const bucket = groups.get(definition.category);
+  const groups = new Map<string, NodeMeta[]>();
+  listAllMeta().forEach((definition) => {
+    const bucket = groups.get(definition.category ?? definition.family);
     if (bucket) {
       bucket.push(definition);
     } else {
-      groups.set(definition.category, [definition]);
+      groups.set(definition.category ?? definition.family, [definition]);
     }
   });
 
@@ -151,11 +151,11 @@ export const BottomDrawer = () => {
                 draggable={Boolean(activeFileId)}
                 onDragStart={(event) => handleDragStart(event, definition.kind)}
                 className={cn("node-drawer-tile", { disabled: !activeFileId })}
-                title={definition.description}
+                title={definition.docs.summary}
               >
                 <div className="node-drawer-tile-header">
                   <span className="node-drawer-tile-icon">
-                    {definition.title.slice(0, 2).toUpperCase()}
+                    {definition.acronym ?? definition.title.slice(0, 2).toUpperCase()}
                   </span>
                   <span className="node-drawer-tile-name">
                     {definition.title}
