@@ -155,8 +155,19 @@ const renderField = (
 
 const slotHandleId = (slot: SlotDefinition) => `slot:${slot.name}`;
 
-const PORT_BASE_OFFSET = 104;
-const PORT_ROW_SPACING = 36;
+const LEFT_HANDLE_STYLE: CSSProperties = {
+  position: 'absolute',
+  left: '-12px',
+  top: '50%',
+  transform: 'translate(-50%, -50%)'
+};
+
+const RIGHT_HANDLE_STYLE: CSSProperties = {
+  position: 'absolute',
+  right: '-12px',
+  top: '50%',
+  transform: 'translate(50%, -50%)'
+};
 
 type NodeShellProps = {
   definition: Omit<NodeDefinition, 'Component'>;
@@ -178,8 +189,8 @@ export const NodeShell = ({
   slots = definition.slots,
   dataInputs = definition.dataInputs,
   dataOutputs = definition.dataOutputs,
-  hasFlowInput = definition.hasFlowInput ?? true,
-  hasFlowOutput = definition.hasFlowOutput ?? true
+  hasFlowInput = definition.hasFlowInput ?? definition.family === 'flow',
+  hasFlowOutput = definition.hasFlowOutput ?? definition.family === 'flow'
 }: NodeShellProps) => {
   const { setNodes } = useReactFlow<Node<ScreepsNodeData>>();
   const palette = familyPalette[data.family] ?? familyPalette.creep;
@@ -229,20 +240,16 @@ export const NodeShell = ({
         <Handle id="flow:out" type="source" position={Position.Bottom} className="port-dot flow" />
       ) : null}
       {hasDataInputs ? (
-        <div className="node-port-heading left" style={{ top: PORT_BASE_OFFSET - PORT_ROW_SPACING }}>
-          Inputs
-        </div>
-      ) : null}
-      <div className="node-ports node-ports-left">
-        {dataInputs?.map((input, index) => {
-          const top = PORT_BASE_OFFSET + index * PORT_ROW_SPACING;
-          return (
-            <div key={input.handleId} className="node-port left" style={{ top }}>
+        <div className="node-ports node-ports-left">
+          <div className="node-port-heading left">Inputs</div>
+          {dataInputs?.map((input) => (
+            <div key={input.handleId} className="node-port left">
               <Handle
                 id={input.handleId}
                 type="target"
                 position={Position.Left}
                 className="port-dot"
+                style={LEFT_HANDLE_STYLE}
               />
               <span
                 className={cn('node-port-label', 'input', { optional: input.optional })}
@@ -255,19 +262,14 @@ export const NodeShell = ({
                 <span className="node-port-text">{input.label}</span>
               </span>
             </div>
-          );
-        })}
-      </div>
-      {hasSlotOutputs || hasDataOutputs ? (
-        <div className="node-port-heading right" style={{ top: PORT_BASE_OFFSET - PORT_ROW_SPACING }}>
-          Outputs
+          ))}
         </div>
       ) : null}
-      <div className="node-ports node-ports-right">
-        {slots?.map((slot, index) => {
-          const top = PORT_BASE_OFFSET + index * PORT_ROW_SPACING;
-          return (
-            <div key={slot.name} className="node-port right" style={{ top }}>
+      {hasSlotOutputs || hasDataOutputs ? (
+        <div className="node-ports node-ports-right">
+          <div className="node-port-heading right">Outputs</div>
+          {slots?.map((slot) => (
+            <div key={slot.name} className="node-port right">
               <span className="node-port-label output slot" title={slot.label}>
                 <span className="node-port-text">{slot.label}</span>
                 <span className="node-port-icon output slot" aria-hidden="true" />
@@ -277,15 +279,12 @@ export const NodeShell = ({
                 type="source"
                 position={Position.Right}
                 className="port-dot"
+                style={RIGHT_HANDLE_STYLE}
               />
             </div>
-          );
-        })}
-        {dataOutputs?.map((output, index) => {
-          const slotCount = slots?.length ?? 0;
-          const top = PORT_BASE_OFFSET + (slotCount + index) * PORT_ROW_SPACING;
-          return (
-            <div key={output.handleId} className="node-port right" style={{ top }}>
+          ))}
+          {dataOutputs?.map((output) => (
+            <div key={output.handleId} className="node-port right">
               <span className="node-port-label output data" title={output.label}>
                 <span className="node-port-text">{output.label}</span>
                 <span className="node-port-icon output data" aria-hidden="true" />
@@ -295,11 +294,12 @@ export const NodeShell = ({
                 type="source"
                 position={Position.Right}
                 className="port-dot"
+                style={RIGHT_HANDLE_STYLE}
               />
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : null}
       <div className="node-surface">
         <header className="node-header">
           <div className="node-header-icon">{iconLabel}</div>
