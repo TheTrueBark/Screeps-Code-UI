@@ -14,6 +14,14 @@ export const TabsBar = ({ className }: TabsBarProps) => {
   const activeFileId = useFileStore((state) => state.activeFileId);
   const setActiveFile = useFileStore((state) => state.setActiveFile);
   const closeTab = useFileStore((state) => state.closeTab);
+  const saveStates = useFileStore((state) => state.saveStates);
+
+  const activeStatus = activeFileId ? saveStates[activeFileId] : undefined;
+  const statusLabel = activeStatus?.status === 'saving'
+    ? 'Saving…'
+    : activeStatus?.status === 'saved'
+      ? 'Saved'
+      : '';
 
   const handleSelect = useCallback(
     (fileId: string) => () => {
@@ -46,7 +54,10 @@ export const TabsBar = ({ className }: TabsBarProps) => {
               onClick={handleSelect(tab.id)}
               className={cn('tab-chip', { active: isActive })}
             >
-              <span className="tab-chip-label">{tab.name}</span>
+              <span className="tab-chip-label">
+                {saveStates[tab.id]?.dirty ? <span className="tab-chip-dot">•</span> : null}
+                {tab.name}
+              </span>
               <span
                 role="button"
                 tabIndex={0}
@@ -67,6 +78,7 @@ export const TabsBar = ({ className }: TabsBarProps) => {
           );
         })
       )}
+      {statusLabel ? <div className="tab-status" aria-live="polite">{statusLabel}</div> : null}
     </div>
   );
 };

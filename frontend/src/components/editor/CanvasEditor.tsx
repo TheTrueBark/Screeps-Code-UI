@@ -1,5 +1,6 @@
 import {
   Background,
+  BackgroundVariant,
   MarkerType,
   ReactFlow,
   ReactFlowProvider,
@@ -9,8 +10,11 @@ import {
   useReactFlow,
   type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
-  type ReactFlowJsonObject
+  type NodeChange,
+  type ReactFlowJsonObject,
+  type Viewport
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nanoid } from 'nanoid';
@@ -23,21 +27,59 @@ import {
   type DragEvent,
   type WheelEvent as ReactWheelEvent
 } from 'react';
-import type { GraphNodeData, GraphState } from '@shared/types';
-import { useFileStore } from '../../state/fileStore';
-import { useNodeStore } from '../../state/nodeStore';
+import type { GraphState } from '@shared/types';
+import { useFileStore, GRAPH_STATE_VERSION } from '../../state/fileStore';
 import type { ScreepsNodeData } from './NodeTypes/BaseNode';
 import { NODE_DEFINITION_MAP, NODE_TYPE_MAP } from './nodeRegistry';
 
 const nodeTypes = NODE_TYPE_MAP;
+const GRID_SIZE = 24;
+const SNAP_GRID: [number, number] = [GRID_SIZE, GRID_SIZE];
+const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 } as const;
+
+const snapValue = (value: number) => Math.round(value / GRID_SIZE) * GRID_SIZE;
+
+const snapPosition = (position: { x: number; y: number }) => ({
+  x: snapValue(position.x),
+  y: snapValue(position.y)
+});
+
+const normalizeNodes = (nodes: GraphState['xyflow']['nodes']): Node<ScreepsNodeData>[] =>
+  nodes.map((node) => ({
+    ...node,
+    type: node.type ?? NODE_DEFINITION_MAP[(node.data as ScreepsNodeData | undefined)?.kind ?? '']?.type ?? node.type ?? '',
+    data: (node.data ?? {}) as ScreepsNodeData
+  })) as Node<ScreepsNodeData>[];
+
+const normalizeEdges = (edges: GraphState['xyflow']['edges']): Edge[] =>
+  edges.map((edge) => ({
+    ...edge,
+    id: edge.id ?? nanoid(),
+    sourceHandle: edge.sourceHandle ?? undefined,
+    targetHandle: edge.targetHandle ?? undefined
+  }));
+
+const buildGraphStateFromSnapshot = (
+  snapshot: ReactFlowJsonObject<Node<ScreepsNodeData>, Edge>
+): GraphState => ({
+  version: GRAPH_STATE_VERSION,
+  xyflow: {
+    nodes: snapshot.nodes ?? [],
+    edges: snapshot.edges ?? [],
+    viewport: snapshot.viewport ?? { ...DEFAULT_VIEWPORT }
+  },
+  updatedAt: Date.now()
+});
 
 const CanvasEditorInner = () => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const isHydratingRef = useRef(false);
+  const localSaveTimer = useRef<number | null>(null);
   const activeFileId = useFileStore((state) => state.activeFileId);
-  const initializeGraph = useNodeStore((state) => state.initializeGraphForFile);
-  const setGraphState = useNodeStore((state) => state.setGraphState);
-  const graph = useNodeStore((state) => state.getGraphForFile(activeFileId));
+  const getGraphState = useFileStore((state) => state.getGraphState);
+  const saveActiveGraph = useFileStore((state) => state.saveActiveGraph);
   const registerGraphSerializer = useFileStore((state) => state.registerGraphSerializer);
+  const flushPendingSaves = useFileStore((state) => state.flushPendingSaves);
   const {
     screenToFlowPosition,
     toObject,
@@ -49,10 +91,9 @@ const CanvasEditorInner = () => {
     getViewport
   } = useReactFlow<Node<ScreepsNodeData>, Edge>();
   const [zoomDisplay, setZoomDisplay] = useState('100%');
-  const [snapToGrid, setSnapToGrid] = useState(false);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreepsNodeData>>(graph.nodes as Node<ScreepsNodeData>[]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
+  const [nodes, setNodes, applyNodeChanges] = useNodesState<Node<ScreepsNodeData>>([]);
+  const [edges, setEdges, applyEdgeChanges] = useEdgesState<Edge>([]);
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
 
@@ -64,28 +105,58 @@ const CanvasEditorInner = () => {
     edgesRef.current = edges;
   }, [edges]);
 
-  useEffect(() => {
-    registerGraphSerializer(() => {
-      const snapshot = toObject() as ReactFlowJsonObject<Node<ScreepsNodeData>, Edge> | null;
-      if (!snapshot) {
-        return null;
+  const scheduleGraphSave = useCallback(
+    (immediate = false) => {
+      if (!activeFileId) {
+        return;
       }
 
-      return {
-        nodes: snapshot.nodes.map((node) => ({
-          id: node.id,
-          type: node.type ?? '',
-          position: node.position,
-          data: (node.data ?? {}) as GraphNodeData
-        })),
-        edges: snapshot.edges.map((edge) => ({
-          id: edge.id ?? nanoid(),
-          source: edge.source,
-          target: edge.target,
-          sourceHandle: edge.sourceHandle ?? null,
-          targetHandle: edge.targetHandle ?? null
-        }))
-      } satisfies GraphState;
+      if (!immediate && isHydratingRef.current) {
+        return;
+      }
+
+      const run = () => {
+        const snapshot = toObject() as ReactFlowJsonObject<Node<ScreepsNodeData>, Edge>;
+        const graphState = buildGraphStateFromSnapshot(snapshot);
+        saveActiveGraph(graphState, immediate ? { immediate: true } : undefined);
+      };
+
+      if (immediate) {
+        if (localSaveTimer.current) {
+          window.clearTimeout(localSaveTimer.current);
+          localSaveTimer.current = null;
+        }
+        run();
+        return;
+      }
+
+      if (localSaveTimer.current) {
+        window.clearTimeout(localSaveTimer.current);
+      }
+
+      localSaveTimer.current = window.setTimeout(() => {
+        localSaveTimer.current = null;
+        run();
+      }, 220);
+    },
+    [activeFileId, saveActiveGraph, toObject]
+  );
+
+  useEffect(() => () => {
+    if (localSaveTimer.current) {
+      window.clearTimeout(localSaveTimer.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    registerGraphSerializer(() => {
+      try {
+        const snapshot = toObject() as ReactFlowJsonObject<Node<ScreepsNodeData>, Edge>;
+        return buildGraphStateFromSnapshot(snapshot);
+      } catch (error) {
+        console.warn('Failed to serialise graph', error);
+        return null;
+      }
     });
 
     return () => {
@@ -95,28 +166,55 @@ const CanvasEditorInner = () => {
 
   useEffect(() => {
     if (!activeFileId) {
+      setNodes([]);
+      setEdges([]);
       return;
     }
 
-    initializeGraph(activeFileId);
-  }, [activeFileId, initializeGraph]);
-
-  useEffect(() => {
-    setNodes(graph.nodes as Node<ScreepsNodeData>[]);
-    setEdges(graph.edges);
-  }, [graph.nodes, graph.edges, setEdges, setNodes]);
-
-  useEffect(() => {
-    if (!activeFileId) {
+    const graph = getGraphState(activeFileId);
+    if (!graph) {
+      setNodes([]);
+      setEdges([]);
+      setViewport({ ...DEFAULT_VIEWPORT }, { duration: 0 });
       return;
     }
 
-    setGraphState(activeFileId, nodes as Node<ScreepsNodeData>[], edges);
-  }, [activeFileId, edges, nodes, setGraphState]);
+    isHydratingRef.current = true;
+    const nextNodes = normalizeNodes(graph.xyflow.nodes);
+    const nextEdges = normalizeEdges(graph.xyflow.edges);
+    setNodes(nextNodes);
+    setEdges(nextEdges);
+
+    const viewport = graph.xyflow.viewport ?? DEFAULT_VIEWPORT;
+    setViewport({ ...viewport }, { duration: 0 });
+    setTimeout(() => {
+      isHydratingRef.current = false;
+      setZoomDisplay(`${Math.round((getZoom() ?? 1) * 100)}%`);
+    }, 0);
+  }, [activeFileId, getGraphState, getZoom, setEdges, setNodes, setViewport]);
 
   const onConnect = useCallback(
-    (connection: Connection | Edge) => setEdges((eds) => addEdge(connection, eds)),
-    [setEdges]
+    (connection: Connection | Edge) => {
+      setEdges((eds) => addEdge(connection, eds));
+      scheduleGraphSave();
+    },
+    [scheduleGraphSave, setEdges]
+  );
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange<Node<ScreepsNodeData>>[]) => {
+      applyNodeChanges(changes);
+      scheduleGraphSave();
+    },
+    [applyNodeChanges, scheduleGraphSave]
+  );
+
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange<Edge>[]) => {
+      applyEdgeChanges(changes);
+      scheduleGraphSave();
+    },
+    [applyEdgeChanges, scheduleGraphSave]
   );
 
   const onDrop = useCallback(
@@ -143,10 +241,12 @@ const CanvasEditorInner = () => {
         return;
       }
 
-      const position = screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY
-      });
+      const position = snapPosition(
+        screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY
+        })
+      );
 
       const newNode: Node<ScreepsNodeData> = {
         id: `${definition.type}-${nanoid(6)}`,
@@ -161,14 +261,134 @@ const CanvasEditorInner = () => {
       };
 
       setNodes((current) => [...current, newNode]);
+      scheduleGraphSave();
     },
-    [activeFileId, screenToFlowPosition, setNodes]
+    [activeFileId, scheduleGraphSave, screenToFlowPosition, setNodes]
   );
 
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
   }, []);
+
+  const updateZoomDisplay = useCallback(() => {
+    setTimeout(() => {
+      setZoomDisplay(`${Math.round((getZoom() ?? 1) * 100)}%`);
+    }, 0);
+  }, [getZoom]);
+
+  const normaliseWheelDelta = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
+    const nativeEvent = event.nativeEvent;
+    let delta = nativeEvent.deltaY;
+
+    if (nativeEvent.deltaMode === 1) {
+      delta *= 16;
+    } else if (nativeEvent.deltaMode === 2) {
+      delta *= 100;
+    }
+
+    if (delta === 0 && nativeEvent.deltaX !== 0) {
+      delta = nativeEvent.deltaX;
+    }
+
+    return delta;
+  }, []);
+
+  const handleWheel = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      if (!activeFileId) {
+        return;
+      }
+
+      const delta = normaliseWheelDelta(event);
+
+      if (event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const viewport = getViewport();
+        setViewport({
+          x: viewport.x - delta * 0.6,
+          y: viewport.y,
+          zoom: viewport.zoom
+        });
+        scheduleGraphSave();
+        return;
+      }
+
+      if (event.ctrlKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const viewport = getViewport();
+        setViewport({
+          x: viewport.x,
+          y: viewport.y - delta * 0.7,
+          zoom: viewport.zoom
+        });
+        scheduleGraphSave();
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (delta < 0) {
+        zoomIn({ duration: 0 });
+      } else {
+        zoomOut({ duration: 0 });
+      }
+
+      updateZoomDisplay();
+      scheduleGraphSave();
+    },
+    [activeFileId, getViewport, normaliseWheelDelta, scheduleGraphSave, setViewport, updateZoomDisplay, zoomIn, zoomOut]
+  );
+
+  useEffect(() => {
+    updateZoomDisplay();
+  }, [updateZoomDisplay]);
+
+  useEffect(() => {
+    if (!activeFileId) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') {
+        return;
+      }
+
+      const selectedNodes = nodesRef.current.filter((node) => node.selected);
+      const selectedEdges = edgesRef.current.filter((edge) => edge.selected);
+
+      if (selectedNodes.length === 0 && selectedEdges.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+
+      setNodes((current) => current.filter((node) => !node.selected));
+      setEdges((current) => current.filter((edge) => !edge.selected));
+      scheduleGraphSave();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeFileId, scheduleGraphSave, setEdges, setNodes]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      scheduleGraphSave(true);
+      flushPendingSaves();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [flushPendingSaves, scheduleGraphSave]);
 
   const emptyState = useMemo(
     () => (
@@ -199,109 +419,6 @@ const CanvasEditorInner = () => {
     []
   );
 
-  const updateZoomDisplay = useCallback(() => {
-    setTimeout(() => {
-      setZoomDisplay(`${Math.round((getZoom() ?? 1) * 100)}%`);
-    }, 0);
-  }, [getZoom]);
-
-  const normaliseWheelDelta = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
-    const nativeEvent = event.nativeEvent;
-    let delta = nativeEvent.deltaY;
-
-    if (nativeEvent.deltaMode === 1) {
-      delta *= 16;
-    } else if (nativeEvent.deltaMode === 2) {
-      delta *= 100;
-    }
-
-    if (delta === 0 && nativeEvent.deltaX !== 0) {
-      delta = nativeEvent.deltaX;
-    }
-
-    return delta;
-  }, []);
-
-  const handleWheel = useCallback(
-    (event: ReactWheelEvent<HTMLDivElement>) => {
-      if (!showFlow) {
-        return;
-      }
-
-      const delta = normaliseWheelDelta(event);
-
-      if (event.shiftKey) {
-        event.preventDefault();
-        event.stopPropagation();
-        const viewport = getViewport();
-        setViewport({
-          x: viewport.x - delta * 0.6,
-          y: viewport.y,
-          zoom: viewport.zoom
-        });
-        return;
-      }
-
-      if (event.ctrlKey || event.metaKey) {
-        event.preventDefault();
-        event.stopPropagation();
-        const viewport = getViewport();
-        setViewport({
-          x: viewport.x,
-          y: viewport.y - delta * 0.6,
-          zoom: viewport.zoom
-        });
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (delta < 0) {
-        zoomIn({ duration: 0 });
-      } else {
-        zoomOut({ duration: 0 });
-      }
-
-      updateZoomDisplay();
-    },
-    [getViewport, normaliseWheelDelta, setViewport, showFlow, updateZoomDisplay, zoomIn, zoomOut]
-  );
-
-  useEffect(() => {
-    updateZoomDisplay();
-  }, [updateZoomDisplay]);
-
-  useEffect(() => {
-    if (!showFlow) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Delete' && event.key !== 'Backspace') {
-        return;
-      }
-
-      const selectedNodes = nodesRef.current.filter((node) => node.selected);
-      const selectedEdges = edgesRef.current.filter((edge) => edge.selected);
-
-      if (selectedNodes.length === 0 && selectedEdges.length === 0) {
-        return;
-      }
-
-      event.preventDefault();
-
-      setNodes((current) => current.filter((node) => !node.selected));
-      setEdges((current) => current.filter((edge) => !edge.selected));
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [setEdges, setNodes, showFlow]);
-
   return (
     <div
       ref={wrapperRef}
@@ -321,15 +438,34 @@ const CanvasEditorInner = () => {
           defaultEdgeOptions={defaultEdgeOptions}
           fitView
           panOnDrag={[1, 2]}
-          snapToGrid={snapToGrid}
-          snapGrid={[32, 32]}
+          snapToGrid
+          snapGrid={SNAP_GRID}
           selectionOnDrag={false}
           zoomOnScroll={false}
           panOnScroll={false}
           className="neo-flow"
-          onMoveEnd={updateZoomDisplay}
+          onMoveEnd={() => {
+            updateZoomDisplay();
+            scheduleGraphSave();
+          }}
+          onViewportChange={(_viewport: Viewport) => {
+            scheduleGraphSave();
+          }}
+          onNodeDragStop={(_, node) => {
+            setNodes((current) =>
+              current.map((existing) =>
+                existing.id === node.id
+                  ? {
+                      ...existing,
+                      position: snapPosition(node.position)
+                    }
+                  : existing
+              )
+            );
+            scheduleGraphSave();
+          }}
         >
-          <Background gap={32} color="#1c1d1f" lineWidth={1} />
+          <Background gap={GRID_SIZE} color="#1c1d1f" lineWidth={1} variant={BackgroundVariant.Lines} />
         </ReactFlow>
       ) : (
         emptyState
@@ -344,8 +480,9 @@ const CanvasEditorInner = () => {
             type="button"
             className="toolbar-button"
             onClick={() => {
-              zoomOut();
+              zoomOut({ duration: 0 });
               updateZoomDisplay();
+              scheduleGraphSave();
             }}
             aria-label="Zoom out"
           >
@@ -356,8 +493,9 @@ const CanvasEditorInner = () => {
             type="button"
             className="toolbar-button"
             onClick={() => {
-              zoomIn();
+              zoomIn({ duration: 0 });
               updateZoomDisplay();
+              scheduleGraphSave();
             }}
             aria-label="Zoom in"
           >
@@ -369,6 +507,7 @@ const CanvasEditorInner = () => {
             onClick={() => {
               fitView({ padding: 0.12 });
               updateZoomDisplay();
+              scheduleGraphSave();
             }}
           >
             Fit
@@ -376,23 +515,13 @@ const CanvasEditorInner = () => {
         </div>
         <div className="canvas-toolbar-meta">
           <span className="meta-pill">Auto-sync</span>
-          <button
-            type="button"
-            className={`meta-pill toggle ${snapToGrid ? 'active' : ''}`}
-            onClick={() => setSnapToGrid((prev) => !prev)}
-          >
-            {snapToGrid ? 'Snap grid: On' : 'Snap grid: Off'}
-          </button>
+          <span className="meta-pill muted">Snap grid: 24px</span>
         </div>
       </div>
     </div>
   );
 };
 
-/**
- * Wrapper component that provides the ReactFlow context and keeps the canvas
- * synchronized with the Zustand stores.
- */
 export const CanvasEditor = () => (
   <ReactFlowProvider>
     <CanvasEditorInner />

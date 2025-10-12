@@ -404,6 +404,27 @@
   transition: color 160ms ease;
 }
 
+.tab-chip-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-chip-dot {
+  font-size: 14px;
+  line-height: 1;
+  color: rgba(255, 200, 0, 0.8);
+}
+
+.tab-status {
+  margin-left: auto;
+  padding-right: 12px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+}
+
 .tab-chip:hover {
   color: #ffffff;
 }
@@ -638,6 +659,19 @@
   transition:
     border-color 160ms ease,
     color 160ms ease;
+}
+
+.tree-bullet {
+  width: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 11px;
+}
+
+.tree-item.active .tree-bullet {
+  color: rgba(0, 200, 255, 0.75);
 }
 
 .tree-toggle:hover {

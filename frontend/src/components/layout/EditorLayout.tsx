@@ -6,6 +6,7 @@ import { FileTree } from "./FileTree";
 import { OutputPanel } from "./OutputPanel";
 import { TabsBar } from "./TabsBar";
 import { cn } from "../../utils/classNames";
+import { useFileStore } from "../../state/fileStore";
 
 type EditorLayoutProps = {
   onOutputChange?: (output: string) => void;
@@ -17,9 +18,11 @@ type EditorLayoutProps = {
  */
 export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
   const [localOutput, setLocalOutput] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
   const effectiveOutput = output ?? localOutput;
+  const sidebarCollapsed = useFileStore((state) => state.sidebarCollapsed);
+  const setSidebarCollapsed = useFileStore((state) => state.setSidebarCollapsed);
+  const toggleSidebarCollapsed = useFileStore((state) => state.toggleSidebarCollapsed);
 
   const handleGenerated = (value: string) => {
     setLocalOutput(value);
@@ -33,7 +36,7 @@ export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
         (event.key === "b" || event.key === "B")
       ) {
         event.preventDefault();
-        setSidebarCollapsed((prev) => !prev);
+        toggleSidebarCollapsed();
       }
     };
 
@@ -41,7 +44,7 @@ export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
     return () => {
       window.removeEventListener("keydown", handleKey);
     };
-  }, []);
+  }, [toggleSidebarCollapsed]);
 
   return (
     <div className="editor-shell">
@@ -51,7 +54,7 @@ export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
       <button
         type="button"
         className={cn("sidebar-expander", { visible: sidebarCollapsed })}
-        onClick={() => setSidebarCollapsed((prev) => !prev)}
+        onClick={toggleSidebarCollapsed}
         aria-label={
           sidebarCollapsed ? "Expand file tree" : "Collapse file tree"
         }
