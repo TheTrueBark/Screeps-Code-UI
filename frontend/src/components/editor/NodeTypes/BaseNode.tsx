@@ -1,5 +1,6 @@
 import { useReactFlow, type NodeProps, type Node } from "@xyflow/react";
-import { useCallback, useMemo, type ReactNode } from "react";
+import { nanoid } from "nanoid";
+import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { getNodeMeta } from "../../../data/nodeRegistry";
 import { NodeRenderer, type IOPortRow } from "../NodeRenderer";
 import type {
@@ -22,6 +23,7 @@ export interface ScreepsNodeData extends Record<string, unknown> {
   status?: "idle" | "warning" | "error";
   disabled?: boolean;
   portPreviews?: Record<string, string>;
+  editing?: boolean;
 }
 
 const safeJsonValue = (value: unknown) => {
@@ -37,107 +39,41 @@ const safeJsonValue = (value: unknown) => {
   return JSON.stringify(value ?? "", null, 2);
 };
 
-const renderField = (
-  data: ScreepsNodeData,
-  setConfig: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => void,
-  field: ConfigField,
-): ReactNode => {
-  const value = data.config[field.name];
+type FilterConfig = {
+  id: string;
+  field?: string;
+  op?: string;
+  value?: unknown;
+};
 
-  const update = (next: unknown) => {
-    setConfig((prev) => ({
-      ...prev,
-      [field.name]: next,
-    }));
-  };
+const FILTER_OPERATORS: Array<{ label: string; value: string }> = [
+  { label: "===", value: "===" },
+  { label: "!==", value: "!==" },
+  { label: ">", value: ">" },
+  { label: "<", value: "<" },
+  { label: ">=", value: ">=" },
+  { label: "<=", value: "<=" },
+  { label: "includes", value: "includes" }
+];
 
-  switch (field.type) {
-    case "text":
-      return (
-        <label key={field.name} className="oled-field">
-          <span className="oled-field-label">{field.label}</span>
-          <input
-            type="text"
-            className="oled-field-input"
-            placeholder={field.placeholder}
-            value={typeof value === "string" ? value : ""}
-            onChange={(event) => update(event.target.value)}
-          />
-          {field.helper ? <span className="oled-field-helper">{field.helper}</span> : null}
-        </label>
-      );
-    case "number":
-      return (
-        <label key={field.name} className="oled-field">
-          <span className="oled-field-label">{field.label}</span>
-          <input
-            type="number"
-            className="oled-field-input"
-            value={typeof value === "number" || typeof value === "string" ? value : ""}
-            min={field.min}
-            max={field.max}
-            step={field.step}
-            onChange={(event) => update(event.target.value === "" ? null : Number(event.target.value))}
-          />
-          {field.helper ? <span className="oled-field-helper">{field.helper}</span> : null}
-        </label>
-      );
-    case "select":
-      return (
-        <label key={field.name} className="oled-field">
-          <span className="oled-field-label">{field.label}</span>
-          <select
-            className="oled-field-input"
-            value={typeof value === "string" ? value : ""}
-            onChange={(event) => update(event.target.value)}
-          >
-            <option value="" disabled>
-              Select…
-            </option>
-            {field.options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {field.helper ? <span className="oled-field-helper">{field.helper}</span> : null}
-        </label>
-      );
-    case "checkbox":
-      return (
-        <label key={field.name} className="oled-field-checkbox">
-          <input
-            type="checkbox"
-            checked={Boolean(value)}
-            onChange={(event) => update(event.target.checked)}
-          />
-          <span>{field.label}</span>
-        </label>
-      );
-    case "json":
-      return (
-        <label key={field.name} className="oled-field">
-          <span className="oled-field-label">{field.label}</span>
-          <textarea
-            className="oled-field-input font-mono"
-            rows={field.rows ?? 3}
-            value={safeJsonValue(value)}
-            onChange={(event) => {
-              const raw = event.target.value;
-              try {
-                const parsed = JSON.parse(raw);
-                update(parsed);
-              } catch (error) {
-                update(raw);
-              }
-            }}
-          />
-          {field.helper ? <span className="oled-field-helper">{field.helper}</span> : null}
-        </label>
-      );
-    default:
-      return null;
+const normalizeFilters = (filters: unknown): FilterConfig[] => {
+  if (!Array.isArray(filters)) {
+    return [];
   }
+
+  return filters.map((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return { id: nanoid(6), field: "", op: "===", value: "" };
+    }
+
+    const value = entry as Record<string, unknown>;
+    return {
+      id: typeof value.id === "string" ? value.id : nanoid(6),
+      field: typeof value.field === "string" ? value.field : "",
+      op: typeof value.op === "string" ? value.op : "===",
+      value: value.value
+    };
+  });
 };
 
 type NodeShellProps = {
@@ -202,17 +138,266 @@ export const NodeShell = ({
     [data, nodeId, setNodes],
   );
 
-  const configContent = useMemo(() => {
-    if (!definition.configFields.length) {
-      return null;
+  useEffect(() => {
+    const raw = data.config.filters;
+    if (!Array.isArray(raw)) {
+      return;
     }
 
-    return (
-      <div className="oled-node-config">
-        {definition.configFields.map((field) => renderField(data, setConfig, field))}
-      </div>
+    const missingId = raw.some(
+      (entry) => !entry || typeof entry !== "object" || typeof (entry as Record<string, unknown>).id !== "string",
     );
-  }, [data, definition.configFields, setConfig]);
+
+    if (!missingId) {
+      return;
+    }
+
+    setConfig((prev) => ({
+      ...prev,
+      filters: normalizeFilters((prev as Record<string, unknown>).filters),
+    }));
+  }, [data.config.filters, setConfig]);
+
+  const filters = useMemo(() => normalizeFilters(data.config.filters), [data.config.filters]);
+  const isEditing = Boolean(data.editing);
+
+  const mutateFilters = useCallback(
+    (updater: (current: FilterConfig[]) => FilterConfig[]) => {
+      setConfig((prev) => ({
+        ...prev,
+        filters: updater(normalizeFilters((prev as Record<string, unknown>).filters)),
+      }));
+    },
+    [setConfig],
+  );
+
+  const handleFilterChange = useCallback(
+    (id: string, key: "field" | "op" | "value", value: string) => {
+      mutateFilters((current) =>
+        current.map((filter) =>
+          filter.id === id
+            ? {
+                ...filter,
+                [key]: value,
+              }
+            : filter,
+        ),
+      );
+    },
+    [mutateFilters],
+  );
+
+  const handleAddFilter = useCallback(() => {
+    mutateFilters((current) => [...current, { id: nanoid(6), field: "", op: "===", value: "" }]);
+  }, [mutateFilters]);
+
+  const handleRemoveFilter = useCallback(
+    (id: string) => {
+      mutateFilters((current) => current.filter((filter) => filter.id !== id));
+    },
+    [mutateFilters],
+  );
+
+  const configRows = useMemo(() => {
+    const rowsList: IOPortRow[] = [];
+
+    definition.configFields.forEach((field) => {
+      if (field.type === "json" && field.name === "filters") {
+        if (filters.length === 0) {
+          rowsList.push({
+            key: "filters:empty",
+            label: "Filters",
+            control: isEditing ? (
+              <button type="button" className="node-grid-add" onClick={handleAddFilter}>
+                + Add Filter
+              </button>
+            ) : (
+              <div className="node-grid-preview muted">No filters</div>
+            ),
+          });
+        } else {
+          filters.forEach((filter, index) => {
+            const summary = `${filter.field ?? "candidate"} ${filter.op ?? "==="} ${String(
+              filter.value ?? "",
+            )}`.trim();
+            rowsList.push({
+              key: `filters:${filter.id}`,
+              label: `Filter ${index + 1}`,
+              control: isEditing ? (
+                <div className="node-filter-control">
+                  <input
+                    type="text"
+                    className="node-grid-input sm"
+                    placeholder="candidate.prop"
+                    value={typeof filter.field === "string" ? filter.field : ""}
+                    onChange={(event) => handleFilterChange(filter.id, "field", event.target.value)}
+                  />
+                  <select
+                    className="node-grid-select sm"
+                    value={typeof filter.op === "string" ? filter.op : "==="}
+                    onChange={(event) => handleFilterChange(filter.id, "op", event.target.value)}
+                  >
+                    {FILTER_OPERATORS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                    {filter.op && !FILTER_OPERATORS.some((option) => option.value === filter.op) ? (
+                      <option value={String(filter.op)}>{filter.op}</option>
+                    ) : null}
+                  </select>
+                  <input
+                    type="text"
+                    className="node-grid-input sm"
+                    placeholder="Value"
+                    value={typeof filter.value === "string" ? filter.value : String(filter.value ?? "")}
+                    onChange={(event) => handleFilterChange(filter.id, "value", event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="node-grid-remove"
+                    onClick={() => handleRemoveFilter(filter.id)}
+                    aria-label="Remove filter"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="node-grid-preview" title={summary}>
+                  {summary}
+                </div>
+              ),
+            });
+          });
+
+          if (isEditing) {
+            rowsList.push({
+              key: "filters:add",
+              label: "Filters",
+              control: (
+                <button type="button" className="node-grid-add" onClick={handleAddFilter}>
+                  + Add Filter
+                </button>
+              ),
+            });
+          }
+        }
+
+        return;
+      }
+
+      const value = data.config[field.name];
+      const updateField = (next: unknown) => {
+        setConfig((prev) => ({
+          ...prev,
+          [field.name]: next,
+        }));
+      };
+
+      if (field.type === "text") {
+        rowsList.push({
+          key: `config:${field.name}`,
+          label: field.label,
+          control: (
+            <input
+              type="text"
+              className="node-grid-input"
+              placeholder={field.placeholder}
+              value={typeof value === "string" ? value : ""}
+              onChange={(event) => updateField(event.target.value)}
+            />
+          ),
+        });
+        return;
+      }
+
+      if (field.type === "number") {
+        rowsList.push({
+          key: `config:${field.name}`,
+          label: field.label,
+          control: (
+            <input
+              type="number"
+              className="node-grid-input"
+              value={typeof value === "number" || typeof value === "string" ? value : ""}
+              min={field.min}
+              max={field.max}
+              step={field.step}
+              onChange={(event) =>
+                updateField(event.target.value === "" ? null : Number(event.target.value))
+              }
+            />
+          ),
+        });
+        return;
+      }
+
+      if (field.type === "select") {
+        rowsList.push({
+          key: `config:${field.name}`,
+          label: field.label,
+          control: (
+            <select
+              className="node-grid-select"
+              value={typeof value === "string" ? value : ""}
+              onChange={(event) => updateField(event.target.value)}
+            >
+              <option value="" disabled>
+                Select…
+              </option>
+              {field.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ),
+        });
+        return;
+      }
+
+      if (field.type === "checkbox") {
+        rowsList.push({
+          key: `config:${field.name}`,
+          label: field.label,
+          control: (
+            <input
+              type="checkbox"
+              className="node-grid-checkbox"
+              checked={Boolean(value)}
+              onChange={(event) => updateField(event.target.checked)}
+            />
+          ),
+        });
+        return;
+      }
+
+      if (field.type === "json") {
+        rowsList.push({
+          key: `config:${field.name}`,
+          label: field.label,
+          control: (
+            <input
+              type="text"
+              className="node-grid-input font-mono"
+              value={safeJsonValue(value)}
+              onChange={(event) => {
+                const raw = event.target.value;
+                try {
+                  const parsed = JSON.parse(raw);
+                  updateField(parsed);
+                } catch (error) {
+                  updateField(raw);
+                }
+              }}
+            />
+          ),
+        });
+      }
+    });
+
+    return rowsList;
+  }, [data.config, definition.configFields, filters, handleAddFilter, handleFilterChange, handleRemoveFilter, isEditing, setConfig]);
 
   const alerts = useMemo(() => {
     const items: ReactNode[] = [];
@@ -248,9 +433,9 @@ export const NodeShell = ({
       dataOutputs={dataOutputs}
       slots={slots}
       rows={rows}
+      extraRows={configRows}
       meta={meta}
     >
-      {configContent}
       {children}
       {alerts.length > 0 ? <div className="oled-node-alerts">{alerts}</div> : null}
     </NodeRenderer>

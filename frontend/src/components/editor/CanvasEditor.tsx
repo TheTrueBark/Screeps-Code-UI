@@ -34,14 +34,17 @@ import { getDocMarkdown, getNodeMeta } from '../../data/nodeRegistry';
 import type { ScreepsNodeData } from './NodeTypes/BaseNode';
 import type { NodeDefinition } from './NodeTypes/types';
 import { NODE_DEFINITION_MAP, NODE_TYPE_MAP } from './nodeRegistry';
-import { NodeContextBar } from './NodeContextBar';
+import { BottomMenu } from './BottomMenu';
 import { NodeHelpPopover } from './NodeHelpPopover';
-import { FloatingCatalog } from './FloatingCatalog';
+import { NodeToolbar } from './NodeToolbar';
 
 const nodeTypes = NODE_TYPE_MAP;
 const GRID_SIZE = 24;
 const SNAP_GRID: [number, number] = [GRID_SIZE, GRID_SIZE];
 const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 } as const;
+const ZOOM_STEP = 0.05;
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 2;
 
 const snapValue = (value: number) => Math.round(value / GRID_SIZE) * GRID_SIZE;
 
@@ -49,6 +52,23 @@ const snapPosition = (position: { x: number; y: number }) => ({
   x: snapValue(position.x),
   y: snapValue(position.y)
 });
+
+const quantizeZoom = (value: number) => Math.round(value / ZOOM_STEP) * ZOOM_STEP;
+
+const clampZoom = (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+
+const stableStringify = (value: unknown): string =>
+  JSON.stringify(value, (_key, val) => {
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      return Object.keys(val as Record<string, unknown>)
+        .sort()
+        .reduce<Record<string, unknown>>((acc, key) => {
+          acc[key] = (val as Record<string, unknown>)[key];
+          return acc;
+        }, {});
+    }
+    return val;
+  });
 
 const normalizeNodes = (nodes: GraphState['xyflow']['nodes']): Node<ScreepsNodeData>[] =>
   nodes.map((node) => ({
@@ -133,10 +153,19 @@ const CanvasEditorInner = () => {
   const [nodes, setNodes, applyNodeChanges] = useNodesState<Node<ScreepsNodeData>>([]);
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [contextPosition, setContextPosition] = useState<{ x: number; y: number } | null>(null);
+  const [toolbarAnchor, setToolbarAnchor] = useState<DOMRect | null>(null);
+  const [toolbarPlacement, setToolbarPlacement] = useState<'above' | 'below'>('below');
+  const [zoomValue, setZoomValue] = useState(1);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [catalogOpen, setCatalogOpen] = useState(false);
-  const [catalogPinned, setCatalogPinned] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const syncZoom = useCallback((value: number) => {
+    const quantized = clampZoom(quantizeZoom(value));
+    setZoomValue(quantized);
+    setZoomDisplay(`${Math.round(quantized * 100)}%`);
+    return quantized;
+  }, []);
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
 
@@ -185,23 +214,29 @@ const CanvasEditorInner = () => {
     [scheduleGraphSave, setNodes]
   );
 
-  const updateContextPosition = useCallback(() => {
+  const updateToolbarAnchor = useCallback(() => {
     if (!selectedNodeId) {
-      setContextPosition(null);
+      setToolbarAnchor(null);
       return;
     }
 
     const element = document.querySelector<HTMLElement>(`[data-node-id="${selectedNodeId}"]`);
     if (!element) {
-      setContextPosition(null);
+      setToolbarAnchor(null);
       return;
     }
 
     const rect = element.getBoundingClientRect();
-    setContextPosition({ x: rect.right + 12, y: rect.bottom + 8 });
+    const viewportHeight = window.innerHeight;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const placement = spaceBelow >= spaceAbove ? 'below' : 'above';
+
+    setToolbarPlacement(placement);
+    setToolbarAnchor(rect);
   }, [selectedNodeId]);
 
-  const handleCatalogSpawn = useCallback(
+  const handleSpawnNode = useCallback(
     (kind: string) => {
       const definition = NODE_DEFINITION_MAP[kind];
       if (!definition) {
@@ -274,6 +309,107 @@ const CanvasEditorInner = () => {
     [setNodes]
   );
 
+  const handleCategoryToggle = useCallback((category: string) => {
+    setActiveCategory((current) => (current === category ? null : category));
+  }, []);
+
+  const refreshZoom = useCallback(() => {
+    const current = getZoom() ?? 1;
+    syncZoom(current);
+  }, [getZoom, syncZoom]);
+
+  const applyZoomStep = useCallback(
+    (direction: 1 | -1) => {
+      if (direction > 0) {
+        zoomIn({ duration: 0 });
+      } else {
+        zoomOut({ duration: 0 });
+      }
+
+      requestAnimationFrame(() => {
+        const viewport = getViewport();
+        const quantized = syncZoom(viewport.zoom ?? 1);
+        if (Math.abs((viewport.zoom ?? 1) - quantized) > 0.0001) {
+          setViewport({ ...viewport, zoom: quantized }, { duration: 0 });
+        }
+        scheduleGraphSave();
+      });
+    },
+    [getViewport, scheduleGraphSave, setViewport, syncZoom, zoomIn, zoomOut]
+  );
+
+  const handleToggleEdit = useCallback(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+
+    setNodes((current) =>
+      current.map((node) => {
+        if (node.id !== selectedNodeId) {
+          return node;
+        }
+
+        const data = (node.data as ScreepsNodeData) ?? {
+          kind: '',
+          label: '',
+          family: 'flow',
+          config: {}
+        };
+
+        return {
+          ...node,
+          data: {
+            ...data,
+            editing: !data.editing
+          }
+        };
+      })
+    );
+    scheduleGraphSave();
+  }, [scheduleGraphSave, selectedNodeId, setNodes]);
+
+  const handleDuplicateNode = useCallback(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+
+    const source = nodesRef.current.find((entry) => entry.id === selectedNodeId);
+    if (!source) {
+      return;
+    }
+
+    const sourceData = (source.data as ScreepsNodeData) ?? {
+      kind: '',
+      label: '',
+      family: 'flow',
+      config: {}
+    };
+
+    const definition = NODE_DEFINITION_MAP[sourceData.kind];
+    if (!definition) {
+      return;
+    }
+
+    const offsetPosition = snapPosition({
+      x: source.position.x + GRID_SIZE,
+      y: source.position.y + GRID_SIZE
+    });
+
+    const clone = instantiateNode(definition, offsetPosition);
+    clone.data = {
+      ...JSON.parse(JSON.stringify(sourceData)),
+      editing: false
+    } as ScreepsNodeData;
+
+    setNodes((current) => [...current, clone]);
+    setSelectedNodeId(clone.id);
+    scheduleGraphSave();
+  }, [scheduleGraphSave, selectedNodeId, setNodes]);
+
+  const handleToggleHelp = useCallback(() => {
+    setHelpOpen((prev) => !prev);
+  }, []);
+
   const clearPortPreview = useCallback(
     (targetId: string | null | undefined, targetHandle: string | null | undefined) => {
       if (!targetId || !targetHandle) {
@@ -321,74 +457,16 @@ const CanvasEditorInner = () => {
     []
   );
 
-  const handleToggleNodeDisabled = useCallback(() => {
-    if (!selectedNodeId) {
-      return;
-    }
-
-    setNodes((current) =>
-      current.map((node) => {
-        if (node.id !== selectedNodeId) {
-          return node;
-        }
-
-        const currentData = (node.data as ScreepsNodeData) ?? {
-          kind: '',
-          label: '',
-          family: 'flow',
-          config: {}
-        };
-
-        return {
-          ...node,
-          data: {
-            ...currentData,
-            disabled: !currentData.disabled
-          }
-        };
-      })
-    );
-    scheduleGraphSave();
-  }, [scheduleGraphSave, selectedNodeId, setNodes]);
-
-  const handleDeleteNode = useCallback(() => {
-    if (!selectedNodeId) {
-      return;
-    }
-
-    setNodes((current) => current.filter((node) => node.id !== selectedNodeId));
-    setEdges((current) => current.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId));
-    setSelectedNodeId(null);
-    scheduleGraphSave();
-  }, [scheduleGraphSave, selectedNodeId, setEdges, setNodes]);
-
-  const handleCloseSelection = useCallback(() => {
-    if (!selectedNodeId) {
-      return;
-    }
-
-    setNodes((current) =>
-      current.map((node) => (node.id === selectedNodeId ? { ...node, selected: false } : node))
-    );
-    setSelectedNodeId(null);
-  }, [selectedNodeId, setNodes]);
-
-  const handleCatalogOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      if (!nextOpen && catalogPinned) {
-        setCatalogPinned(false);
-      }
-      setCatalogOpen(nextOpen);
+  const deleteNodeById = useCallback(
+    (nodeId: string) => {
+      setNodes((current) => current.filter((node) => node.id !== nodeId));
+      setEdges((current) => current.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+      setSelectedNodeId((current) => (current === nodeId ? null : current));
+      setPendingDeleteId(null);
+      scheduleGraphSave();
     },
-    [catalogPinned]
+    [scheduleGraphSave, setEdges, setNodes]
   );
-
-  const handleCatalogPinChange = useCallback((nextPinned: boolean) => {
-    setCatalogPinned(nextPinned);
-    if (nextPinned) {
-      setCatalogOpen(true);
-    }
-  }, []);
 
   useEffect(() => {
     nodesRef.current = nodes;
@@ -399,11 +477,12 @@ const CanvasEditorInner = () => {
   }, [edges]);
 
   useEffect(() => {
-    updateContextPosition();
-  }, [nodes, selectedNodeId, updateContextPosition]);
+    updateToolbarAnchor();
+  }, [nodes, selectedNodeId, updateToolbarAnchor]);
 
   useEffect(() => {
     setHelpOpen(false);
+    setPendingDeleteId(null);
   }, [selectedNodeId]);
 
   useEffect(() => {
@@ -417,7 +496,7 @@ const CanvasEditorInner = () => {
       }
       const rect = wrapperRef.current.getBoundingClientRect();
       pointerRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-      updateContextPosition();
+      updateToolbarAnchor();
     };
 
     handleResize();
@@ -425,49 +504,11 @@ const CanvasEditorInner = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [updateContextPosition]);
-
-  useEffect(() => {
-    if (catalogOpen && wrapperRef.current) {
-      const rect = wrapperRef.current.getBoundingClientRect();
-      pointerRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    }
-  }, [catalogOpen]);
-
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.code !== 'Space') {
-        return;
-      }
-
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-
-      if (catalogPinned) {
-        setCatalogPinned(false);
-        setCatalogOpen(false);
-        return;
-      }
-
-      setCatalogOpen((prev) => !prev);
-    };
-
-    window.addEventListener('keydown', handleKey);
-    return () => {
-      window.removeEventListener('keydown', handleKey);
-    };
-  }, [catalogPinned]);
+  }, [updateToolbarAnchor]);
 
   useOnViewportChange({
-    onChange: () => updateContextPosition(),
-    onEnd: () => updateContextPosition()
+    onChange: () => updateToolbarAnchor(),
+    onEnd: () => updateToolbarAnchor()
   });
 
   useEffect(() => () => {
@@ -597,12 +638,6 @@ const CanvasEditorInner = () => {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  const updateZoomDisplay = useCallback(() => {
-    setTimeout(() => {
-      setZoomDisplay(`${Math.round((getZoom() ?? 1) * 100)}%`);
-    }, 0);
-  }, [getZoom]);
-
   const normaliseWheelDelta = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
     const nativeEvent = event.nativeEvent;
     let delta = nativeEvent.deltaY;
@@ -657,21 +692,14 @@ const CanvasEditorInner = () => {
       event.preventDefault();
       event.stopPropagation();
 
-      if (delta < 0) {
-        zoomIn({ duration: 0 });
-      } else {
-        zoomOut({ duration: 0 });
-      }
-
-      updateZoomDisplay();
-      scheduleGraphSave();
+      applyZoomStep(delta < 0 ? 1 : -1);
     },
-    [activeFileId, getViewport, normaliseWheelDelta, scheduleGraphSave, setViewport, updateZoomDisplay, zoomIn, zoomOut]
+    [activeFileId, applyZoomStep, getViewport, normaliseWheelDelta, scheduleGraphSave, setViewport]
   );
 
   useEffect(() => {
-    updateZoomDisplay();
-  }, [updateZoomDisplay]);
+    refreshZoom();
+  }, [refreshZoom]);
 
   useEffect(() => {
     if (!activeFileId) {
@@ -679,22 +707,76 @@ const CanvasEditorInner = () => {
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Delete' && event.key !== 'Backspace') {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
         return;
       }
 
-      const selectedNodes = nodesRef.current.filter((node) => node.selected);
-      const selectedEdges = edgesRef.current.filter((edge) => edge.selected);
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        const selectedNodes = nodesRef.current.filter((node) => node.selected);
+        const selectedEdges = edgesRef.current.filter((edge) => edge.selected);
 
-      if (selectedNodes.length === 0 && selectedEdges.length === 0) {
+        if (selectedNodes.length === 0 && selectedEdges.length === 0) {
+          return;
+        }
+
+        event.preventDefault();
+
+        if (selectedNodes.length === 1) {
+          const node = selectedNodes[0];
+          const data = (node.data as ScreepsNodeData) ?? {
+            kind: '',
+            label: '',
+            family: 'flow',
+            config: {}
+          };
+          const definition = NODE_DEFINITION_MAP[data.kind];
+          const requiresConfirm = definition
+            ? stableStringify(data.config ?? {}) !== stableStringify(definition.defaultConfig ?? {})
+            : false;
+
+          if (requiresConfirm) {
+            setSelectedNodeId(node.id);
+            setPendingDeleteId(node.id);
+            return;
+          }
+
+          deleteNodeById(node.id);
+        } else if (selectedNodes.length > 1) {
+          selectedNodes.forEach((node) => deleteNodeById(node.id));
+        }
+
+        if (selectedEdges.length > 0) {
+          setEdges((current) => current.filter((edge) => !edge.selected));
+          scheduleGraphSave();
+        }
+
         return;
       }
 
-      event.preventDefault();
+      if (!selectedNodeId) {
+        return;
+      }
 
-      setNodes((current) => current.filter((node) => !node.selected));
-      setEdges((current) => current.filter((edge) => !edge.selected));
-      scheduleGraphSave();
+      if (event.key === 'e' || event.key === 'E') {
+        event.preventDefault();
+        handleToggleEdit();
+        return;
+      }
+
+      if (event.key === 'd' || event.key === 'D') {
+        event.preventDefault();
+        handleDuplicateNode();
+        return;
+      }
+
+      if (event.key === '?') {
+        event.preventDefault();
+        setHelpOpen(true);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -702,7 +784,17 @@ const CanvasEditorInner = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [activeFileId, scheduleGraphSave, setEdges, setNodes]);
+  }, [
+    activeFileId,
+    deleteNodeById,
+    handleDuplicateNode,
+    handleToggleEdit,
+    scheduleGraphSave,
+    selectedNodeId,
+    setPendingDeleteId,
+    setEdges,
+    setSelectedNodeId
+  ]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -749,9 +841,25 @@ const CanvasEditorInner = () => {
     () => nodes.find((node) => node.id === selectedNodeId) ?? null,
     [nodes, selectedNodeId]
   );
+  const selectedData = selectedNode?.data as ScreepsNodeData | undefined;
+  const selectedDefinition = useMemo(() => {
+    if (!selectedData) {
+      return undefined;
+    }
+    return NODE_DEFINITION_MAP[selectedData.kind];
+  }, [selectedData]);
   const selectedMeta = selectedNode
     ? getNodeMeta((selectedNode.data as ScreepsNodeData).kind)
     : undefined;
+
+  const configModified = useMemo(() => {
+    if (!selectedDefinition) {
+      return false;
+    }
+    const defaultConfig = selectedDefinition.defaultConfig ?? {};
+    const currentConfig = selectedData?.config ?? {};
+    return stableStringify(currentConfig) !== stableStringify(defaultConfig);
+  }, [selectedData?.config, selectedDefinition]);
 
   const helpMarkdown = useMemo(() => {
     if (!selectedMeta) {
@@ -760,10 +868,39 @@ const CanvasEditorInner = () => {
     return getDocMarkdown(selectedMeta.kind);
   }, [selectedMeta]);
 
-  const isCatalogActive = catalogPinned || catalogOpen;
-  const helpAnchor = contextPosition
-    ? { x: contextPosition.x, y: contextPosition.y + 56 }
-    : null;
+  const helpAnchor = useMemo(() => {
+    if (!toolbarAnchor) {
+      return null;
+    }
+    return {
+      x: toolbarAnchor.left + toolbarAnchor.width / 2,
+      y: toolbarPlacement === 'below' ? toolbarAnchor.bottom + 12 : toolbarAnchor.top - 12
+    };
+  }, [toolbarAnchor, toolbarPlacement]);
+
+  const handleDeleteRequest = useCallback(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+
+    if (configModified) {
+      setPendingDeleteId(selectedNodeId);
+      return;
+    }
+
+    deleteNodeById(selectedNodeId);
+  }, [configModified, deleteNodeById, selectedNodeId]);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+    deleteNodeById(selectedNodeId);
+  }, [deleteNodeById, selectedNodeId]);
+
+  const handleCancelDelete = useCallback(() => {
+    setPendingDeleteId(null);
+  }, []);
 
   return (
     <div
@@ -802,11 +939,24 @@ const CanvasEditorInner = () => {
           className="neo-flow"
           onSelectionChange={handleSelectionChange as any}
           onMoveEnd={() => {
-            updateZoomDisplay();
+            refreshZoom();
             scheduleGraphSave();
           }}
           onViewportChange={(_viewport: Viewport) => {
             scheduleGraphSave();
+          }}
+          onNodeDrag={(_, node) => {
+            const snapped = snapPosition(node.position);
+            setNodes((current) =>
+              current.map((existing) =>
+                existing.id === node.id
+                  ? {
+                      ...existing,
+                      position: snapped
+                    }
+                  : existing
+              )
+            );
           }}
           onNodeDragStop={(_, node) => {
             setNodes((current) =>
@@ -830,25 +980,20 @@ const CanvasEditorInner = () => {
       ) : (
         emptyState
       )}
-      <FloatingCatalog
-        open={isCatalogActive}
-        pinned={catalogPinned}
-        onOpenChange={handleCatalogOpenChange}
-        onPinChange={handleCatalogPinChange}
-        onSpawn={handleCatalogSpawn}
-        selectedMeta={selectedMeta}
-        onSelectedHelp={() => setHelpOpen(true)}
-      />
-      <NodeContextBar
-        position={contextPosition}
-        visible={Boolean(selectedNodeId)}
-        paused={Boolean((selectedNode?.data as ScreepsNodeData | undefined)?.disabled)}
-        pinned={catalogPinned}
-        onPause={handleToggleNodeDisabled}
-        onPinToggle={() => handleCatalogPinChange(!catalogPinned)}
-        onHelp={() => setHelpOpen((prev) => !prev)}
-        onDelete={handleDeleteNode}
-        onClose={handleCloseSelection}
+      <NodeToolbar
+        anchor={toolbarAnchor}
+        placement={toolbarPlacement}
+        zoom={zoomValue}
+        visible={Boolean(selectedNodeId && toolbarAnchor)}
+        editing={Boolean(selectedData?.editing)}
+        confirmVisible={pendingDeleteId === selectedNodeId}
+        hasCustomConfig={configModified}
+        onEdit={handleToggleEdit}
+        onDuplicate={handleDuplicateNode}
+        onHelp={() => setHelpOpen(true)}
+        onDelete={handleDeleteRequest}
+        onConfirmDelete={handleConfirmDelete}
+        onCancelDelete={handleCancelDelete}
       />
       <NodeHelpPopover
         open={helpOpen && Boolean(selectedMeta)}
@@ -856,6 +1001,12 @@ const CanvasEditorInner = () => {
         title={selectedMeta?.title ?? ''}
         markdown={helpMarkdown}
         onClose={() => setHelpOpen(false)}
+      />
+      <BottomMenu
+        activeCategory={activeCategory}
+        onToggle={handleCategoryToggle}
+        onSpawn={handleSpawnNode}
+        disabled={!activeFileId}
       />
       <div className="canvas-toolbar">
         <div className="canvas-toolbar-status">
@@ -866,11 +1017,7 @@ const CanvasEditorInner = () => {
           <button
             type="button"
             className="toolbar-button"
-            onClick={() => {
-              zoomOut({ duration: 0 });
-              updateZoomDisplay();
-              scheduleGraphSave();
-            }}
+            onClick={() => applyZoomStep(-1)}
             aria-label="Zoom out"
           >
             −
@@ -879,11 +1026,7 @@ const CanvasEditorInner = () => {
           <button
             type="button"
             className="toolbar-button"
-            onClick={() => {
-              zoomIn({ duration: 0 });
-              updateZoomDisplay();
-              scheduleGraphSave();
-            }}
+            onClick={() => applyZoomStep(1)}
             aria-label="Zoom in"
           >
             ＋
@@ -893,7 +1036,7 @@ const CanvasEditorInner = () => {
             className="toolbar-button"
             onClick={() => {
               fitView({ padding: 0.12 });
-              updateZoomDisplay();
+              refreshZoom();
               scheduleGraphSave();
             }}
           >
