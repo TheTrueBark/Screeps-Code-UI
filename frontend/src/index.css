@@ -1,24 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --color-bg: #0f172a;
-  --color-fg: #e2e8f0;
-  --color-canvas: #1e293b;
+  --color-bg-oled: #050505;
+  --color-panel: #0f0f0f;
+  --color-border: #1a1a1a;
+  --color-text: #f0f0f0;
+  --color-text-dim: #9aa0a6;
+  --color-accent-cyan: #00c8ff;
+  --color-accent-purple: #bb86fc;
+  --color-accent-yellow: #facc15;
+  --color-accent-red: #ff3b3b;
+  --color-accent-gray: #a0a0a0;
 }
 
-html.dark {
-  background-color: var(--color-bg);
-  color: var(--color-fg);
-}
-
+html,
 body {
   min-height: 100vh;
-  background-color: var(--color-bg);
-  color: var(--color-fg);
+  background-color: var(--color-bg-oled);
+  color: var(--color-text);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  font-family: inherit;
 }
 
 #root {
   min-height: 100vh;
+}
+
+::selection {
+  background: rgba(0, 200, 255, 0.3);
+  color: var(--color-text);
 }

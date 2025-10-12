@@ -4,8 +4,11 @@ export type BaseTreeNode = {
   type: 'file' | 'folder';
 };
 
+import type { GraphState } from '@shared/types';
+
 export type FileNode = BaseTreeNode & {
   type: 'file';
+  graphState?: GraphState;
 };
 
 export type FolderNode = BaseTreeNode & {
@@ -92,6 +95,26 @@ export const renameNodeInTree = (
       return {
         ...node,
         children: renameNodeInTree(node.children, id, name)
+      } satisfies FolderNode;
+    }
+
+    return node;
+  });
+
+export const updateNodeInTree = (
+  nodes: TreeNode[],
+  id: string,
+  updater: (node: TreeNode) => TreeNode
+): TreeNode[] =>
+  nodes.map((node) => {
+    if (node.id === id) {
+      return updater(node);
+    }
+
+    if (node.type === 'folder') {
+      return {
+        ...node,
+        children: updateNodeInTree(node.children, id, updater)
       } satisfies FolderNode;
     }
 

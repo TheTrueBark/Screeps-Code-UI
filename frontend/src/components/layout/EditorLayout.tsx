@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CanvasEditor } from '../editor/CanvasEditor';
 import { CodeGeneratorButton } from '../editor/CodeGeneratorButton';
-import { NodeLibrary } from '../editor/NodeLibrary';
+import { BottomDrawer } from './BottomDrawer';
 import { FileTree } from './FileTree';
+import { OutputPanel } from './OutputPanel';
 import { TabsBar } from './TabsBar';
 import { cn } from '../../utils/classNames';
 
@@ -17,6 +18,7 @@ type EditorLayoutProps = {
 export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
   const [localOutput, setLocalOutput] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [outputOpen, setOutputOpen] = useState(false);
   const effectiveOutput = output ?? localOutput;
 
   const handleGenerated = (value: string) => {
@@ -24,35 +26,33 @@ export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
     onOutputChange?.(value);
   };
 
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'b' || event.key === 'B')) {
+        event.preventDefault();
+        setSidebarCollapsed((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, []);
+
   return (
     <div className="editor-shell">
       <aside className={cn('editor-sidebar', { collapsed: sidebarCollapsed })}>
-        <div className="sidebar-header">
-          <div>
-            <h1 className="sidebar-title">Screeps Visual IDE</h1>
-            <p className="sidebar-subtitle">Compose roles, utilities and automation.</p>
-          </div>
-          <button
-            type="button"
-            className="sidebar-toggle"
-            onClick={() => setSidebarCollapsed(true)}
-            aria-label="Collapse file tree"
-          >
-            ⟨
-          </button>
-        </div>
-        <FileTree />
+        <FileTree onCollapse={() => setSidebarCollapsed(true)} />
       </aside>
-      {sidebarCollapsed && (
-        <button
-          type="button"
-          className="sidebar-expander"
-          onClick={() => setSidebarCollapsed(false)}
-          aria-label="Expand file tree"
-        >
-          Files
-        </button>
-      )}
+      <button
+        type="button"
+        className={cn('sidebar-expander', { visible: sidebarCollapsed })}
+        onClick={() => setSidebarCollapsed((prev) => !prev)}
+        aria-label={sidebarCollapsed ? 'Expand file tree' : 'Collapse file tree'}
+      >
+        {sidebarCollapsed ? '▸ Files' : '◂ Files'}
+      </button>
       <div className="editor-main">
         <header className="editor-toolbar">
           <div className="toolbar-tabs">
@@ -63,15 +63,17 @@ export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
         <div className="workspace">
           <div className="canvas-wrapper">
             <CanvasEditor />
+            <div className="canvas-vignette" aria-hidden />
           </div>
-          <aside className="output-panel">
-            <div className="output-heading">Mock Output</div>
-            <pre className="output-pre">
-              {effectiveOutput || '// Generate code to see the serialised graph for the current file'}
-            </pre>
-          </aside>
+          <OutputPanel
+            open={outputOpen}
+            onToggle={() => setOutputOpen((prev) => !prev)}
+            output={
+              effectiveOutput || '// Generate code to see the serialised graph for the current file'
+            }
+          />
         </div>
-        <NodeLibrary />
+        <BottomDrawer />
       </div>
     </div>
   );

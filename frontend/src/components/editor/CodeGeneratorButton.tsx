@@ -83,8 +83,7 @@ export const CodeGeneratorButton = ({ onGenerated, className }: CodeGeneratorBut
       disabled={!activeFileId}
       aria-label="Generate code for the active file"
     >
-      <span className="btn-generate-glow" aria-hidden />
-      <span className="btn-generate-label">Generate</span>
+      <span>Generate</span>
     </button>
   );
 };

@@ -1,6 +1,6 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { useReactFlow } from '@xyflow/react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type {
   ConfigField,
   DataInputDefinition,
@@ -18,31 +18,21 @@ export interface ScreepsNodeData extends Record<string, unknown> {
   warnings?: string[];
 }
 
-type NodeShellProps = {
-  definition: Omit<NodeDefinition, 'Component'>;
-  nodeId: string;
-  data: ScreepsNodeData;
-  children?: ReactNode;
-  slots?: SlotDefinition[];
-  dataInputs?: DataInputDefinition[];
-  dataOutputs?: DataOutputDefinition[];
-  hasFlowInput?: boolean;
-  hasFlowOutput?: boolean;
+const familyPalette: Record<
+  ScreepsNodeData['family'],
+  { accent: string; port: string; tint: string; badge: string }
+> = {
+  flow: { accent: '#00c8ff', port: '#00c8ff', tint: '#00324a', badge: 'FLOW' },
+  query: { accent: '#facc15', port: '#facc15', tint: '#3b3000', badge: 'LOGIC' },
+  creep: { accent: '#a0a0a0', port: '#b0b0b0', tint: '#1d1d1d', badge: 'NEURAL' },
+  structure: { accent: '#a0a0a0', port: '#b0b0b0', tint: '#1d1d1d', badge: 'STRUCT' },
+  memory: { accent: '#bb86fc', port: '#bb86fc', tint: '#2f1e54', badge: 'MEMORY' },
+  task: { accent: '#facc15', port: '#facc15', tint: '#3b3000', badge: 'LOGIC' }
 };
 
-const familyAccent: Record<ScreepsNodeData['family'], string> = {
-  flow: 'border-cyan-500/30 bg-cyan-500/15 text-cyan-100',
-  query: 'border-amber-500/30 bg-amber-500/15 text-amber-100',
-  creep: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-100',
-  structure: 'border-violet-500/30 bg-violet-500/15 text-violet-100',
-  memory: 'border-sky-500/30 bg-sky-500/15 text-sky-100',
-  task: 'border-rose-500/30 bg-rose-500/15 text-rose-100'
-};
-
-const fieldContainer = 'flex flex-col gap-1';
-const fieldLabel = 'text-xs font-medium text-slate-200';
-const inputBase =
-  'w-full rounded border border-slate-600 bg-slate-900/60 px-2 py-1 text-xs text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-0';
+const fieldWrapper = 'field';
+const labelClass = 'field-label';
+const inputClass = 'field-input';
 
 const safeJsonValue = (value: unknown) => {
   if (typeof value === 'string') {
@@ -64,7 +54,7 @@ const renderField = (
 ) => {
   const value = data.config[field.name];
 
-  const handleChange = (next: unknown) => {
+  const update = (next: unknown) => {
     setConfig((prev) => ({
       ...prev,
       [field.name]: next
@@ -74,42 +64,44 @@ const renderField = (
   switch (field.type) {
     case 'text':
       return (
-        <label key={field.name} className={fieldContainer}>
-          <span className={fieldLabel}>{field.label}</span>
+        <label key={field.name} className={fieldWrapper}>
+          <span className={labelClass}>{field.label}</span>
           <input
             type="text"
-            className={inputBase}
+            className={inputClass}
             placeholder={field.placeholder}
             value={typeof value === 'string' ? value : ''}
-            onChange={(event) => handleChange(event.target.value)}
+            onChange={(event) => update(event.target.value)}
           />
-          {field.helper ? <span className="text-[10px] text-slate-400">{field.helper}</span> : null}
+          {field.helper ? <span className="field-helper">{field.helper}</span> : null}
         </label>
       );
     case 'number':
       return (
-        <label key={field.name} className={fieldContainer}>
-          <span className={fieldLabel}>{field.label}</span>
+        <label key={field.name} className={fieldWrapper}>
+          <span className={labelClass}>{field.label}</span>
           <input
             type="number"
-            className={inputBase}
+            className={inputClass}
             value={typeof value === 'number' || typeof value === 'string' ? value : ''}
             min={field.min}
             max={field.max}
             step={field.step}
-            onChange={(event) => handleChange(event.target.value === '' ? null : Number(event.target.value))}
+            onChange={(event) =>
+              update(event.target.value === '' ? null : Number(event.target.value))
+            }
           />
-          {field.helper ? <span className="text-[10px] text-slate-400">{field.helper}</span> : null}
+          {field.helper ? <span className="field-helper">{field.helper}</span> : null}
         </label>
       );
     case 'select':
       return (
-        <label key={field.name} className={fieldContainer}>
-          <span className={fieldLabel}>{field.label}</span>
+        <label key={field.name} className={fieldWrapper}>
+          <span className={labelClass}>{field.label}</span>
           <select
-            className={inputBase}
+            className={inputClass}
             value={typeof value === 'string' ? value : ''}
-            onChange={(event) => handleChange(event.target.value)}
+            onChange={(event) => update(event.target.value)}
           >
             <option value="" disabled>
               Select…
@@ -120,40 +112,39 @@ const renderField = (
               </option>
             ))}
           </select>
-          {field.helper ? <span className="text-[10px] text-slate-400">{field.helper}</span> : null}
+          {field.helper ? <span className="field-helper">{field.helper}</span> : null}
         </label>
       );
     case 'checkbox':
       return (
-        <label key={field.name} className="flex items-center gap-2 text-xs text-slate-200">
+        <label key={field.name} className="field-checkbox">
           <input
             type="checkbox"
             checked={Boolean(value)}
-            onChange={(event) => handleChange(event.target.checked)}
-            className="h-3 w-3 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-400"
+            onChange={(event) => update(event.target.checked)}
           />
-          {field.label}
+          <span>{field.label}</span>
         </label>
       );
     case 'json':
       return (
-        <label key={field.name} className={fieldContainer}>
-          <span className={fieldLabel}>{field.label}</span>
+        <label key={field.name} className={fieldWrapper}>
+          <span className={labelClass}>{field.label}</span>
           <textarea
-            className={`${inputBase} font-mono`}
+            className={`${inputClass} font-mono`}
             rows={field.rows ?? 3}
             value={safeJsonValue(value)}
             onChange={(event) => {
               const raw = event.target.value;
               try {
                 const parsed = JSON.parse(raw);
-                handleChange(parsed);
+                update(parsed);
               } catch (error) {
-                handleChange(raw);
+                update(raw);
               }
             }}
           />
-          {field.helper ? <span className="text-[10px] text-slate-400">{field.helper}</span> : null}
+          {field.helper ? <span className="field-helper">{field.helper}</span> : null}
         </label>
       );
     default:
@@ -162,6 +153,18 @@ const renderField = (
 };
 
 const slotHandleId = (slot: SlotDefinition) => `slot:${slot.name}`;
+
+type NodeShellProps = {
+  definition: Omit<NodeDefinition, 'Component'>;
+  nodeId: string;
+  data: ScreepsNodeData;
+  children?: ReactNode;
+  slots?: SlotDefinition[];
+  dataInputs?: DataInputDefinition[];
+  dataOutputs?: DataOutputDefinition[];
+  hasFlowInput?: boolean;
+  hasFlowOutput?: boolean;
+};
 
 export const NodeShell = ({
   definition,
@@ -175,6 +178,7 @@ export const NodeShell = ({
   hasFlowOutput = definition.hasFlowOutput ?? true
 }: NodeShellProps) => {
   const { setNodes } = useReactFlow<Node<ScreepsNodeData>>();
+  const palette = familyPalette[data.family] ?? familyPalette.creep;
 
   const setConfig = (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => {
     setNodes((nodes) =>
@@ -201,57 +205,94 @@ export const NodeShell = ({
     );
   };
 
-  const accent = familyAccent[data.family] ?? 'border-slate-600 bg-slate-800/80 text-slate-100';
+  const style = {
+    '--node-accent': palette.accent,
+    '--node-tint': palette.tint,
+    '--node-port': palette.port
+  } as CSSProperties;
+
+  const iconLabel = (definition.subtitle ?? data.kind).slice(0, 2).toUpperCase();
 
   return (
-    <div className="relative min-w-[230px] max-w-[280px] rounded-xl border border-slate-700 bg-slate-900/95 p-3 shadow-xl">
+    <div className="screeps-node" style={style}>
       {hasFlowInput ? (
-        <Handle id="flow:in" type="target" position={Position.Top} className="h-2 w-2" />
+        <Handle id="flow:in" type="target" position={Position.Top} className="port-dot flow" />
       ) : null}
       {hasFlowOutput ? (
-        <Handle id="flow:out" type="source" position={Position.Bottom} className="h-2 w-2" />
+        <Handle id="flow:out" type="source" position={Position.Bottom} className="port-dot flow" />
       ) : null}
-      {slots?.map((slot, index) => (
-        <div key={slot.name} className="absolute right-[-52px] flex items-center gap-1 text-[11px] text-slate-300" style={{ top: 72 + index * 28 }}>
-          <span>{slot.label}</span>
-          <Handle id={slotHandleId(slot)} type="source" position={Position.Right} className="h-2 w-2" />
-        </div>
-      ))}
-      {dataInputs?.map((input, index) => (
-        <div key={input.handleId} className="absolute left-[-58px] flex items-center gap-1 text-[11px] text-slate-400" style={{ top: 72 + index * 26 }}>
-          <Handle id={input.handleId} type="target" position={Position.Left} className="h-2 w-2" />
-          <span>{input.label}</span>
-        </div>
-      ))}
-      {dataOutputs?.map((output, index) => (
-        <div key={output.handleId} className="absolute right-[-58px] flex items-center gap-1 text-[11px] text-slate-400" style={{ top: 72 + (slots?.length ?? 0) * 28 + index * 26 }}>
-          <span>{output.label}</span>
-          <Handle id={output.handleId} type="source" position={Position.Right} className="h-2 w-2" />
-        </div>
-      ))}
-      <div className={`rounded-lg border px-3 py-2 ${accent}`}>
-        <div className="text-xs uppercase tracking-wide text-slate-300">{definition.subtitle}</div>
-        <div className="text-base font-semibold">{definition.title}</div>
+      <div className="node-ports node-ports-left">
+        {dataInputs?.map((input, index) => (
+          <div key={input.handleId} className="node-port left" style={{ top: 92 + index * 28 }}>
+            <Handle
+              id={input.handleId}
+              type="target"
+              position={Position.Left}
+              className="port-dot"
+            />
+            <span className="node-port-label">{input.label}</span>
+          </div>
+        ))}
       </div>
-      <div className="mt-3 flex flex-col gap-3 text-xs text-slate-200">
-        {definition.description ? <p className="text-[11px] text-slate-400">{definition.description}</p> : null}
-        {definition.configFields.map((field) => renderField(data, setConfig, field))}
-        {children}
+      <div className="node-ports node-ports-right">
+        {slots?.map((slot, index) => (
+          <div key={slot.name} className="node-port right" style={{ top: 92 + index * 28 }}>
+            <span className="node-port-label">{slot.label}</span>
+            <Handle
+              id={slotHandleId(slot)}
+              type="source"
+              position={Position.Right}
+              className="port-dot"
+            />
+          </div>
+        ))}
+        {dataOutputs?.map((output, index) => (
+          <div
+            key={output.handleId}
+            className="node-port right"
+            style={{ top: 92 + ((slots?.length ?? 0) + index) * 28 }}
+          >
+            <span className="node-port-label">{output.label}</span>
+            <Handle
+              id={output.handleId}
+              type="source"
+              position={Position.Right}
+              className="port-dot"
+            />
+          </div>
+        ))}
       </div>
-      {data.errors && data.errors.length > 0 ? (
-        <div className="mt-3 rounded-md border border-rose-500 bg-rose-900/40 p-2 text-[11px] text-rose-200">
-          {data.errors.map((error) => (
-            <div key={error}>{error}</div>
-          ))}
+      <div className="node-surface">
+        <header className="node-header">
+          <div className="node-header-icon">{iconLabel}</div>
+          <div className="node-header-text">
+            <span className="node-header-title">{definition.title}</span>
+            <span className="node-header-subtitle">{definition.subtitle ?? data.kind}</span>
+          </div>
+          <span className="node-header-badge">{palette.badge}</span>
+        </header>
+        <div className="node-body">
+          {definition.description ? (
+            <p className="node-description">{definition.description}</p>
+          ) : null}
+          {definition.configFields.map((field) => renderField(data, setConfig, field))}
+          {children}
         </div>
-      ) : null}
-      {data.warnings && data.warnings.length > 0 ? (
-        <div className="mt-3 rounded-md border border-amber-500 bg-amber-900/40 p-2 text-[11px] text-amber-200">
-          {data.warnings.map((warning) => (
-            <div key={warning}>{warning}</div>
-          ))}
-        </div>
-      ) : null}
+        {data.errors && data.errors.length > 0 ? (
+          <div className="node-alert error">
+            {data.errors.map((error) => (
+              <div key={error}>{error}</div>
+            ))}
+          </div>
+        ) : null}
+        {data.warnings && data.warnings.length > 0 ? (
+          <div className="node-alert warning">
+            {data.warnings.map((warning) => (
+              <div key={warning}>{warning}</div>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 };
