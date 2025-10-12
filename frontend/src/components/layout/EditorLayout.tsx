@@ -58,20 +58,30 @@ export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
           <div className="toolbar-tabs">
             <TabsBar />
           </div>
-          <CodeGeneratorButton onGenerated={handleGenerated} className="toolbar-generate" />
+          <div className="toolbar-actions">
+            <button
+              type="button"
+              className="output-toggle"
+              onClick={() => setOutputOpen((prev) => !prev)}
+              aria-expanded={outputOpen}
+            >
+              {outputOpen ? '⟩⟩' : '⟨⟨'}
+            </button>
+            <CodeGeneratorButton onGenerated={handleGenerated} className="toolbar-generate" />
+          </div>
         </header>
         <div className="workspace">
           <div className="canvas-wrapper">
             <CanvasEditor />
           </div>
-          <OutputPanel
-            open={outputOpen}
-            onToggle={() => setOutputOpen((prev) => !prev)}
-            output={
-              effectiveOutput || '// Generate code to see the serialised graph for the current file'
-            }
-          />
         </div>
+        <OutputPanel
+          open={outputOpen}
+          onToggle={() => setOutputOpen((prev) => !prev)}
+          output={
+            effectiveOutput || '// Generate code to see the serialised graph for the current file'
+          }
+        />
         <BottomDrawer />
       </div>
     </div>
