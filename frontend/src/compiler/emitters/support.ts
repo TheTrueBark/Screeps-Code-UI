@@ -1,40 +1,42 @@
-import type { FileIR, NodeIR, PortRef } from '@shared/types';
+import type { FileIR, NodeIR, PortRef } from "@shared/types";
 
 export type WarningMessage = { nodeId?: string; message: string };
 
 const literalToExpression = (value: unknown): string => {
   if (value === undefined) {
-    return 'undefined';
+    return "undefined";
   }
   if (value === null) {
-    return 'null';
+    return "null";
   }
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     return value;
   }
-  if (typeof value === 'number' || typeof value === 'boolean') {
+  if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map((entry) => literalToExpression(entry)).join(', ')}]`;
+    return `[${value.map((entry) => literalToExpression(entry)).join(", ")}]`;
   }
-  if (typeof value === 'object') {
+  if (typeof value === "object") {
     return `{ ${Object.entries(value as Record<string, unknown>)
       .map(([key, val]) => `${key}: ${literalToExpression(val)}`)
-      .join(', ')} }`;
+      .join(", ")} }`;
   }
   return JSON.stringify(value);
 };
 
-export const toObjectLiteral = (value: Record<string, unknown> | undefined): string => {
+export const toObjectLiteral = (
+  value: Record<string, unknown> | undefined,
+): string => {
   if (!value) {
-    return '{}';
+    return "{}";
   }
   const filtered = Object.entries(value).filter(([, v]) => v !== undefined);
   if (filtered.length === 0) {
-    return '{}';
+    return "{}";
   }
-  return `{ ${filtered.map(([key, val]) => `${key}: ${literalToExpression(val)}`).join(', ')} }`;
+  return `{ ${filtered.map(([key, val]) => `${key}: ${literalToExpression(val)}`).join(", ")} }`;
 };
 
 export class EmitContext {
@@ -49,7 +51,7 @@ export class EmitContext {
   constructor(
     readonly file: FileIR,
     private readonly nodeMap: Map<string, NodeIR>,
-    private readonly warnings: WarningMessage[]
+    private readonly warnings: WarningMessage[],
   ) {}
 
   newTemp(prefix: string) {
@@ -58,7 +60,7 @@ export class EmitContext {
   }
 
   pushStatement(statement: string) {
-    const indent = ' '.repeat(this.indentLevel);
+    const indent = " ".repeat(this.indentLevel);
     this.statements.push(`${indent}${statement}`);
   }
 
@@ -67,12 +69,16 @@ export class EmitContext {
     this.indentLevel += 2;
     body();
     this.indentLevel -= 2;
-    this.pushStatement('}');
+    this.pushStatement("}");
   }
 
   emitBlock(lines: string[]): string {
-    const indent = ' '.repeat(this.indentLevel);
-    return [`${indent}{`, ...lines.map((line) => `${indent}  ${line}`), `${indent}}`].join('\n');
+    const indent = " ".repeat(this.indentLevel);
+    return [
+      `${indent}{`,
+      ...lines.map((line) => `${indent}  ${line}`),
+      `${indent}}`,
+    ].join("\n");
   }
 
   enterScope() {
@@ -97,19 +103,26 @@ export class EmitContext {
     this.valueRefs.set(nodeId, expression);
   }
 
-  resolvePort(nodeId: string, ref: PortRef | undefined, fallback?: unknown): string {
+  resolvePort(
+    nodeId: string,
+    ref: PortRef | undefined,
+    fallback?: unknown,
+  ): string {
     if (!ref) {
       return literalToExpression(fallback);
     }
 
-    if (ref.refType === 'literal') {
+    if (ref.refType === "literal") {
       return literalToExpression(ref.value);
     }
 
     const resolved = this.valueRefs.get(ref.fromNodeId);
     if (!resolved) {
-      this.warnings.push({ nodeId, message: `Unable to resolve data from node ${ref.fromNodeId}.` });
-      return 'undefined';
+      this.warnings.push({
+        nodeId,
+        message: `Unable to resolve data from node ${ref.fromNodeId}.`,
+      });
+      return "undefined";
     }
 
     return resolved;
@@ -123,7 +136,7 @@ export class EmitContext {
     if (moduleImports.has(spec)) {
       return moduleImports.get(spec)!;
     }
-    const baseAlias = spec.replace(/[^a-zA-Z0-9_]/g, '_');
+    const baseAlias = spec.replace(/[^a-zA-Z0-9_]/g, "_");
     let alias = baseAlias;
     let suffix = 1;
     while (this.usedAliases.has(alias)) {
@@ -139,9 +152,9 @@ export class EmitContext {
     const lines: string[] = [];
     this.imports.forEach((specs, from) => {
       const entries = Array.from(specs.entries()).map(([spec, alias]) =>
-        spec === alias ? spec : `${spec} as ${alias}`
+        spec === alias ? spec : `${spec} as ${alias}`,
       );
-      lines.push(`import { ${entries.join(', ')} } from '${from}';`);
+      lines.push(`import { ${entries.join(", ")} } from '${from}';`);
     });
     return lines.sort();
   }

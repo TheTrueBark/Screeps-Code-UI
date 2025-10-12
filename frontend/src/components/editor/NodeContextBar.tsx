@@ -22,13 +22,28 @@ const Button = ({
   icon: string;
   onClick?: () => void;
 }) => (
-  <button type="button" className="node-toolbar-btn" onClick={onClick} aria-label={label}>
+  <button
+    type="button"
+    className="node-toolbar-btn"
+    onClick={onClick}
+    aria-label={label}
+  >
     <span aria-hidden="true">{icon}</span>
   </button>
 );
 
 export const NodeContextBar = memo(
-  ({ position, visible, paused, pinned, onPause, onPinToggle, onHelp, onDelete, onClose }: NodeContextBarProps) => {
+  ({
+    position,
+    visible,
+    paused,
+    pinned,
+    onPause,
+    onPinToggle,
+    onHelp,
+    onDelete,
+    onClose,
+  }: NodeContextBarProps) => {
     if (!position) {
       return null;
     }
@@ -40,8 +55,16 @@ export const NodeContextBar = memo(
         role="toolbar"
         aria-hidden={!visible}
       >
-        <Button label={paused ? "Resume node" : "Pause node"} icon={paused ? "▶" : "⏸"} onClick={onPause} />
-        <Button label={pinned ? "Unpin catalog" : "Pin catalog"} icon={pinned ? "📌" : "＋"} onClick={onPinToggle} />
+        <Button
+          label={paused ? "Resume node" : "Pause node"}
+          icon={paused ? "▶" : "⏸"}
+          onClick={onPause}
+        />
+        <Button
+          label={pinned ? "Unpin catalog" : "Pin catalog"}
+          icon={pinned ? "📌" : "＋"}
+          onClick={onPinToggle}
+        />
         <Button label="Help" icon="?" onClick={onHelp} />
         <Button label="Delete node" icon="✕" onClick={onDelete} />
         <Button label="Close selection" icon="⧖" onClick={onClose} />

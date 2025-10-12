@@ -8,7 +8,7 @@ const renderMarkdown = (markdown: string) => {
       paragraph
         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
         .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(/\*(.*?)\*/g, "<em>$1</em>")
+        .replace(/\*(.*?)\*/g, "<em>$1</em>"),
     );
 
   return paragraphs.map((paragraph, index) => (
@@ -24,16 +24,31 @@ type NodeHelpPopoverProps = {
   onClose?: () => void;
 };
 
-export const NodeHelpPopover = ({ open, anchor, title, markdown, onClose }: NodeHelpPopoverProps) => {
+export const NodeHelpPopover = ({
+  open,
+  anchor,
+  title,
+  markdown,
+  onClose,
+}: NodeHelpPopoverProps) => {
   if (!open || !anchor) {
     return null;
   }
 
   return (
-    <div className={cn("node-help-popover", { open })} style={{ left: anchor.x, top: anchor.y }} role="dialog">
+    <div
+      className={cn("node-help-popover", { open })}
+      style={{ left: anchor.x, top: anchor.y }}
+      role="dialog"
+    >
       <header className="node-help-header">
         <span className="node-help-title">{title}</span>
-        <button type="button" className="node-help-close" onClick={onClose} aria-label="Close help">
+        <button
+          type="button"
+          className="node-help-close"
+          onClick={onClose}
+          aria-label="Close help"
+        >
           ×
         </button>
       </header>

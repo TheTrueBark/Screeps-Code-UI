@@ -17,7 +17,8 @@ const REGISTRY: Record<string, NodeMeta> = {
 
 export const listAllMeta = (): NodeMeta[] => Object.values(REGISTRY);
 
-export const getNodeMeta = (kind: string): NodeMeta | undefined => REGISTRY[kind];
+export const getNodeMeta = (kind: string): NodeMeta | undefined =>
+  REGISTRY[kind];
 
 export const getNodeMetaOrThrow = (kind: string): NodeMeta => {
   const meta = getNodeMeta(kind);

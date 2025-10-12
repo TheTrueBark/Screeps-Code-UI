@@ -1,12 +1,12 @@
-import type { FileIR } from '@shared/types';
-import { EmitContext } from './support';
-import { emitNodeSequence } from './runner';
+import type { FileIR } from "@shared/types";
+import { EmitContext } from "./support";
+import { emitNodeSequence } from "./runner";
 
 export const emitTaskBody = (
   file: FileIR,
-  task: NonNullable<FileIR['taskDefs']>[number],
+  task: NonNullable<FileIR["taskDefs"]>[number],
   warnings: Array<{ nodeId?: string; message: string }>,
-  parentContext?: EmitContext
+  parentContext?: EmitContext,
 ): string[] => {
   const nodeMap = new Map(file.nodes.map((node) => [node.id, node]));
   const ctx = new EmitContext(file, nodeMap, warnings);

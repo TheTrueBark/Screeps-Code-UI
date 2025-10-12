@@ -1,7 +1,7 @@
-import { memo, useMemo, type CSSProperties } from 'react';
-import { cn } from '../../utils/classNames';
+import { memo, useMemo, type CSSProperties } from "react";
+import { cn } from "../../utils/classNames";
 
-export type ToolbarPlacement = 'above' | 'below';
+export type ToolbarPlacement = "above" | "below";
 
 type NodeToolbarProps = {
   anchor: DOMRect | null;
@@ -20,10 +20,10 @@ type NodeToolbarProps = {
 };
 
 const BUTTONS = [
-  { key: 'edit', label: 'Edit node (E)', icon: '✎' },
-  { key: 'duplicate', label: 'Duplicate node (D)', icon: '⧉' },
-  { key: 'help', label: 'Help (?)', icon: '?' },
-  { key: 'delete', label: 'Delete node (Delete)', icon: '✕' }
+  { key: "edit", label: "Edit node (E)", icon: "✎" },
+  { key: "duplicate", label: "Duplicate node (D)", icon: "⧉" },
+  { key: "help", label: "Help (?)", icon: "?" },
+  { key: "delete", label: "Delete node (Delete)", icon: "✕" },
 ] as const;
 
 export const NodeToolbar = memo(
@@ -40,7 +40,7 @@ export const NodeToolbar = memo(
     onHelp,
     onDelete,
     onConfirmDelete,
-    onCancelDelete
+    onCancelDelete,
   }: NodeToolbarProps) => {
     const style = useMemo(() => {
       if (!anchor) {
@@ -48,15 +48,17 @@ export const NodeToolbar = memo(
       }
 
       const offset = 12;
-      const baseTop = placement === 'below' ? anchor.bottom + offset : anchor.top - offset;
-      const translateY = placement === 'below' ? '0' : '-100%';
-      const transformOrigin = placement === 'below' ? 'top center' : 'bottom center';
+      const baseTop =
+        placement === "below" ? anchor.bottom + offset : anchor.top - offset;
+      const translateY = placement === "below" ? "0" : "-100%";
+      const transformOrigin =
+        placement === "below" ? "top center" : "bottom center";
 
       return {
         left: anchor.left + anchor.width / 2,
         top: baseTop,
         transform: `translate(-50%, ${translateY}) scale(${zoom})`,
-        transformOrigin
+        transformOrigin,
       } as CSSProperties;
     }, [anchor, placement, zoom]);
 
@@ -65,15 +67,20 @@ export const NodeToolbar = memo(
     }
 
     return (
-      <div className={cn('node-toolbar', { visible })} style={style} role="toolbar" aria-hidden={!visible}>
+      <div
+        className={cn("node-toolbar", { visible })}
+        style={style}
+        role="toolbar"
+        aria-hidden={!visible}
+      >
         <div className="node-toolbar-buttons">
           {BUTTONS.map((button) => {
-            if (button.key === 'edit') {
+            if (button.key === "edit") {
               return (
                 <button
                   key={button.key}
                   type="button"
-                  className={cn('node-toolbar-btn', { active: editing })}
+                  className={cn("node-toolbar-btn", { active: editing })}
                   onClick={onEdit}
                   aria-label={button.label}
                 >
@@ -82,7 +89,7 @@ export const NodeToolbar = memo(
               );
             }
 
-            if (button.key === 'duplicate') {
+            if (button.key === "duplicate") {
               return (
                 <button
                   key={button.key}
@@ -96,7 +103,7 @@ export const NodeToolbar = memo(
               );
             }
 
-            if (button.key === 'help') {
+            if (button.key === "help") {
               return (
                 <button
                   key={button.key}
@@ -114,7 +121,7 @@ export const NodeToolbar = memo(
               <button
                 key={button.key}
                 type="button"
-                className={cn('node-toolbar-btn', { danger: hasCustomConfig })}
+                className={cn("node-toolbar-btn", { danger: hasCustomConfig })}
                 onClick={onDelete}
                 aria-label={button.label}
               >
@@ -124,18 +131,26 @@ export const NodeToolbar = memo(
           })}
         </div>
         {confirmVisible ? (
-          <div className={cn('node-toolbar-confirm', placement)}>
-            <button type="button" className="node-toolbar-confirm-btn primary" onClick={onConfirmDelete}>
+          <div className={cn("node-toolbar-confirm", placement)}>
+            <button
+              type="button"
+              className="node-toolbar-confirm-btn primary"
+              onClick={onConfirmDelete}
+            >
               Confirm Delete
             </button>
-            <button type="button" className="node-toolbar-confirm-btn" onClick={onCancelDelete}>
+            <button
+              type="button"
+              className="node-toolbar-confirm-btn"
+              onClick={onCancelDelete}
+            >
               Cancel
             </button>
           </div>
         ) : null}
       </div>
     );
-  }
+  },
 );
 
-NodeToolbar.displayName = 'NodeToolbar';
+NodeToolbar.displayName = "NodeToolbar";

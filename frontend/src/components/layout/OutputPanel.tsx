@@ -1,4 +1,4 @@
-import { cn } from '../../utils/classNames';
+import { cn } from "../../utils/classNames";
 
 type OutputPanelProps = {
   open: boolean;
@@ -7,14 +7,19 @@ type OutputPanelProps = {
 };
 
 export const OutputPanel = ({ open, onToggle, output }: OutputPanelProps) => (
-  <aside className={cn('output-drawer', { open })} aria-hidden={!open}>
+  <aside className={cn("output-drawer", { open })} aria-hidden={!open}>
     <div className="output-drawer-surface">
       <header className="output-drawer-header">
         <div className="output-drawer-heading">
           <span className="output-drawer-title">Output</span>
           <span className="output-drawer-subtitle">TypeScript preview</span>
         </div>
-        <button type="button" className="output-drawer-close" onClick={onToggle} aria-label="Close output">
+        <button
+          type="button"
+          className="output-drawer-close"
+          onClick={onToggle}
+          aria-label="Close output"
+        >
           ⟩⟩
         </button>
       </header>

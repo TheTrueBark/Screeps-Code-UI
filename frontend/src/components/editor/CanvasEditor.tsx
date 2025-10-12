@@ -15,10 +15,10 @@ import {
   type Node,
   type NodeChange,
   type ReactFlowJsonObject,
-  type Viewport
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import { nanoid } from 'nanoid';
+  type Viewport,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { nanoid } from "nanoid";
 import {
   useCallback,
   useEffect,
@@ -27,18 +27,18 @@ import {
   useState,
   type CSSProperties,
   type DragEvent,
-  type WheelEvent as ReactWheelEvent
-} from 'react';
-import type { GraphState } from '@shared/types';
-import { useFileStore, GRAPH_STATE_VERSION } from '../../state/fileStore';
-import { getDocMarkdown, getNodeMeta } from '../../data/nodeRegistry';
-import type { ScreepsNodeData } from './NodeTypes/BaseNode';
-import type { NodeDefinition } from './NodeTypes/types';
-import { NODE_DEFINITION_MAP, NODE_TYPE_MAP } from './nodeRegistry';
-import { BottomMenu } from './BottomMenu';
-import { NodeHelpPopover } from './NodeHelpPopover';
-import { NodeToolbar } from './NodeToolbar';
-import { NodeEditPanel } from './NodeEditPanel';
+  type WheelEvent as ReactWheelEvent,
+} from "react";
+import type { GraphState } from "@shared/types";
+import { useFileStore, GRAPH_STATE_VERSION } from "../../state/fileStore";
+import { getDocMarkdown, getNodeMeta } from "../../data/nodeRegistry";
+import type { ScreepsNodeData } from "./NodeTypes/BaseNode";
+import type { NodeDefinition } from "./NodeTypes/types";
+import { NODE_DEFINITION_MAP, NODE_TYPE_MAP } from "./nodeRegistry";
+import { BottomMenu } from "./BottomMenu";
+import { NodeHelpPopover } from "./NodeHelpPopover";
+import { NodeToolbar } from "./NodeToolbar";
+import { NodeEditPanel } from "./NodeEditPanel";
 
 const nodeTypes = NODE_TYPE_MAP;
 const GRID_SIZE = 24;
@@ -52,26 +52,29 @@ const snapValue = (value: number) => Math.round(value / GRID_SIZE) * GRID_SIZE;
 
 const snapPosition = (position: { x: number; y: number }) => ({
   x: snapValue(position.x),
-  y: snapValue(position.y)
+  y: snapValue(position.y),
 });
 
-const quantizeZoom = (value: number) => Math.round(value / ZOOM_STEP) * ZOOM_STEP;
+const quantizeZoom = (value: number) =>
+  Math.round(value / ZOOM_STEP) * ZOOM_STEP;
 
-const clampZoom = (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
-const modulo = (value: number, divisor: number) => ((value % divisor) + divisor) % divisor;
+const clampZoom = (value: number) =>
+  Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+const modulo = (value: number, divisor: number) =>
+  ((value % divisor) + divisor) % divisor;
 
 const computeGridOffset = (viewport: Viewport) => {
   const zoom = viewport.zoom ?? 1;
   const gap = Math.max(4, GRID_SIZE * zoom);
   return {
-    x: modulo(-(viewport.x ?? 0), gap),
-    y: modulo(-(viewport.y ?? 0), gap)
+    x: modulo(viewport.x ?? 0, gap),
+    y: modulo(viewport.y ?? 0, gap),
   };
 };
 
 const stableStringify = (value: unknown): string =>
   JSON.stringify(value, (_key, val) => {
-    if (val && typeof val === 'object' && !Array.isArray(val)) {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
       return Object.keys(val as Record<string, unknown>)
         .sort()
         .reduce<Record<string, unknown>>((acc, key) => {
@@ -82,24 +85,32 @@ const stableStringify = (value: unknown): string =>
     return val;
   });
 
-const normalizeNodes = (nodes: GraphState['xyflow']['nodes']): Node<ScreepsNodeData>[] =>
+const normalizeNodes = (
+  nodes: GraphState["xyflow"]["nodes"],
+): Node<ScreepsNodeData>[] =>
   nodes.map((node) => ({
     ...node,
-    type: node.type ?? NODE_DEFINITION_MAP[(node.data as ScreepsNodeData | undefined)?.kind ?? '']?.type ?? node.type ?? '',
-    data: (node.data ?? {}) as ScreepsNodeData
+    type:
+      node.type ??
+      NODE_DEFINITION_MAP[
+        (node.data as ScreepsNodeData | undefined)?.kind ?? ""
+      ]?.type ??
+      node.type ??
+      "",
+    data: (node.data ?? {}) as ScreepsNodeData,
   })) as Node<ScreepsNodeData>[];
 
-const normalizeEdges = (edges: GraphState['xyflow']['edges']): Edge[] =>
+const normalizeEdges = (edges: GraphState["xyflow"]["edges"]): Edge[] =>
   edges.map((edge) => ({
     ...edge,
     id: edge.id ?? nanoid(),
     sourceHandle: edge.sourceHandle ?? undefined,
-    targetHandle: edge.targetHandle ?? undefined
+    targetHandle: edge.targetHandle ?? undefined,
   }));
 
 const instantiateNode = (
   definition: NodeDefinition,
-  position: { x: number; y: number }
+  position: { x: number; y: number },
 ): Node<ScreepsNodeData> => ({
   id: `${definition.type}-${nanoid(6)}`,
   type: definition.type,
@@ -108,36 +119,45 @@ const instantiateNode = (
     kind: definition.kind,
     label: definition.title,
     family: definition.family,
-    config: JSON.parse(JSON.stringify(definition.defaultConfig ?? {}))
-  }
+    config: JSON.parse(JSON.stringify(definition.defaultConfig ?? {})),
+  },
 });
 
-const getInputLabel = (definition: NodeDefinition | undefined, handleId: string) =>
+const getInputLabel = (
+  definition: NodeDefinition | undefined,
+  handleId: string,
+) =>
   definition?.dataInputs?.find((input) => input.handleId === handleId)?.label;
 
-const getOutputLabel = (definition: NodeDefinition | undefined, handleId: string) => {
+const getOutputLabel = (
+  definition: NodeDefinition | undefined,
+  handleId: string,
+) => {
   if (!definition) {
     return undefined;
   }
 
-  if (handleId.startsWith('slot:')) {
-    const slot = definition.slots?.find((entry) => `slot:${entry.name}` === handleId);
+  if (handleId.startsWith("slot:")) {
+    const slot = definition.slots?.find(
+      (entry) => `slot:${entry.name}` === handleId,
+    );
     return slot?.label;
   }
 
-  return definition.dataOutputs?.find((output) => output.handleId === handleId)?.label;
+  return definition.dataOutputs?.find((output) => output.handleId === handleId)
+    ?.label;
 };
 
 const buildGraphStateFromSnapshot = (
-  snapshot: ReactFlowJsonObject<Node<ScreepsNodeData>, Edge>
+  snapshot: ReactFlowJsonObject<Node<ScreepsNodeData>, Edge>,
 ): GraphState => ({
   version: GRAPH_STATE_VERSION,
   xyflow: {
     nodes: snapshot.nodes ?? [],
     edges: snapshot.edges ?? [],
-    viewport: snapshot.viewport ?? { ...DEFAULT_VIEWPORT }
+    viewport: snapshot.viewport ?? { ...DEFAULT_VIEWPORT },
   },
-  updatedAt: Date.now()
+  updatedAt: Date.now(),
 });
 
 const CanvasEditorInner = () => {
@@ -148,7 +168,9 @@ const CanvasEditorInner = () => {
   const activeFileId = useFileStore((state) => state.activeFileId);
   const getGraphState = useFileStore((state) => state.getGraphState);
   const saveActiveGraph = useFileStore((state) => state.saveActiveGraph);
-  const registerGraphSerializer = useFileStore((state) => state.registerGraphSerializer);
+  const registerGraphSerializer = useFileStore(
+    (state) => state.registerGraphSerializer,
+  );
   const flushPendingSaves = useFileStore((state) => state.flushPendingSaves);
   const {
     screenToFlowPosition,
@@ -156,15 +178,19 @@ const CanvasEditorInner = () => {
     fitView,
     getZoom,
     setViewport,
-    getViewport
+    getViewport,
   } = useReactFlow<Node<ScreepsNodeData>, Edge>();
-  const [zoomDisplay, setZoomDisplay] = useState('100%');
+  const [zoomDisplay, setZoomDisplay] = useState("100%");
 
-  const [nodes, setNodes, applyNodeChanges] = useNodesState<Node<ScreepsNodeData>>([]);
+  const [nodes, setNodes, applyNodeChanges] = useNodesState<
+    Node<ScreepsNodeData>
+  >([]);
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [toolbarAnchor, setToolbarAnchor] = useState<DOMRect | null>(null);
-  const [toolbarPlacement, setToolbarPlacement] = useState<'above' | 'below'>('below');
+  const [toolbarPlacement, setToolbarPlacement] = useState<"above" | "below">(
+    "below",
+  );
   const [zoomValue, setZoomValue] = useState(1);
   const [helpOpen, setHelpOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -176,7 +202,10 @@ const CanvasEditorInner = () => {
       setActiveCategory(null);
     }
   }, [activeFileId]);
-  const gridVisualGap = useMemo(() => Math.max(4, GRID_SIZE * zoomValue), [zoomValue]);
+  const gridVisualGap = useMemo(
+    () => Math.max(4, GRID_SIZE * zoomValue),
+    [zoomValue],
+  );
 
   const syncZoom = useCallback((value: number) => {
     const quantized = clampZoom(quantizeZoom(value));
@@ -192,7 +221,7 @@ const CanvasEditorInner = () => {
       const next = viewport ?? getViewport();
       setGridOffset(computeGridOffset(next));
     },
-    [getViewport]
+    [getViewport],
   );
 
   const scheduleGraphSave = useCallback(
@@ -206,9 +235,15 @@ const CanvasEditorInner = () => {
       }
 
       const run = () => {
-        const snapshot = toObject() as ReactFlowJsonObject<Node<ScreepsNodeData>, Edge>;
+        const snapshot = toObject() as ReactFlowJsonObject<
+          Node<ScreepsNodeData>,
+          Edge
+        >;
         const graphState = buildGraphStateFromSnapshot(snapshot);
-        saveActiveGraph(graphState, immediate ? { immediate: true } : undefined);
+        saveActiveGraph(
+          graphState,
+          immediate ? { immediate: true } : undefined,
+        );
       };
 
       if (immediate) {
@@ -229,15 +264,18 @@ const CanvasEditorInner = () => {
         run();
       }, 220);
     },
-    [activeFileId, saveActiveGraph, toObject]
+    [activeFileId, saveActiveGraph, toObject],
   );
 
   const spawnNode = useCallback(
     (definition: NodeDefinition, position: { x: number; y: number }) => {
-      setNodes((current) => [...current, instantiateNode(definition, position)]);
+      setNodes((current) => [
+        ...current,
+        instantiateNode(definition, position),
+      ]);
       scheduleGraphSave();
     },
-    [scheduleGraphSave, setNodes]
+    [scheduleGraphSave, setNodes],
   );
 
   const updateToolbarAnchor = useCallback(() => {
@@ -246,7 +284,9 @@ const CanvasEditorInner = () => {
       return;
     }
 
-    const element = document.querySelector<HTMLElement>(`[data-node-id="${selectedNodeId}"]`);
+    const element = document.querySelector<HTMLElement>(
+      `[data-node-id="${selectedNodeId}"]`,
+    );
     if (!element) {
       setToolbarAnchor(null);
       return;
@@ -256,7 +296,7 @@ const CanvasEditorInner = () => {
     const viewportHeight = window.innerHeight;
     const spaceBelow = viewportHeight - rect.bottom;
     const spaceAbove = rect.top;
-    const placement = spaceBelow >= spaceAbove ? 'below' : 'above';
+    const placement = spaceBelow >= spaceAbove ? "below" : "above";
 
     setToolbarPlacement(placement);
     setToolbarAnchor(rect);
@@ -279,7 +319,7 @@ const CanvasEditorInner = () => {
       const position = snapPosition(screenToFlowPosition({ x, y }));
       spawnNode(definition, position);
     },
-    [screenToFlowPosition, spawnNode]
+    [screenToFlowPosition, spawnNode],
   );
 
   const applyPortPreview = useCallback(
@@ -287,7 +327,7 @@ const CanvasEditorInner = () => {
       targetId: string | null | undefined,
       targetHandle: string | null | undefined,
       sourceId: string | null | undefined,
-      sourceHandle: string | null | undefined
+      sourceHandle: string | null | undefined,
     ) => {
       if (!targetId || !targetHandle || !sourceId || !sourceHandle) {
         return;
@@ -299,8 +339,10 @@ const CanvasEditorInner = () => {
         return;
       }
 
-      const sourceDefinition = NODE_DEFINITION_MAP[(sourceNode.data as ScreepsNodeData).kind];
-      const targetDefinition = NODE_DEFINITION_MAP[(targetNode.data as ScreepsNodeData).kind];
+      const sourceDefinition =
+        NODE_DEFINITION_MAP[(sourceNode.data as ScreepsNodeData).kind];
+      const targetDefinition =
+        NODE_DEFINITION_MAP[(targetNode.data as ScreepsNodeData).kind];
       const previewLabel =
         getOutputLabel(sourceDefinition, sourceHandle) ??
         getInputLabel(targetDefinition, targetHandle) ??
@@ -313,10 +355,10 @@ const CanvasEditorInner = () => {
           }
 
           const currentData = (node.data as ScreepsNodeData) ?? {
-            kind: '',
-            label: '',
-            family: 'flow',
-            config: {}
+            kind: "",
+            label: "",
+            family: "flow",
+            config: {},
           };
 
           const previews = { ...(currentData.portPreviews ?? {}) };
@@ -326,13 +368,13 @@ const CanvasEditorInner = () => {
             ...node,
             data: {
               ...currentData,
-              portPreviews: previews
-            }
+              portPreviews: previews,
+            },
           };
-        })
+        }),
       );
     },
-    [setNodes]
+    [setNodes],
   );
 
   const handleCategoryToggle = useCallback((category: string) => {
@@ -357,7 +399,7 @@ const CanvasEditorInner = () => {
         scheduleGraphSave();
       });
     },
-    [getViewport, scheduleGraphSave, setGridOffset, setViewport, syncZoom]
+    [getViewport, scheduleGraphSave, setGridOffset, setViewport, syncZoom],
   );
 
   const handleZoomReset = useCallback(() => {
@@ -386,10 +428,10 @@ const CanvasEditorInner = () => {
     setNodes((current) =>
       current.map((node) => {
         const data = (node.data as ScreepsNodeData) ?? {
-          kind: '',
-          label: '',
-          family: 'flow',
-          config: {}
+          kind: "",
+          label: "",
+          family: "flow",
+          config: {},
         };
 
         if (node.id === selectedNodeId) {
@@ -397,8 +439,8 @@ const CanvasEditorInner = () => {
             ...node,
             data: {
               ...data,
-              editing: !data.editing
-            }
+              editing: !data.editing,
+            },
           };
         }
 
@@ -410,10 +452,10 @@ const CanvasEditorInner = () => {
           ...node,
           data: {
             ...data,
-            editing: false
-          }
+            editing: false,
+          },
         };
-      })
+      }),
     );
     scheduleGraphSave();
   }, [scheduleGraphSave, selectedNodeId, setNodes]);
@@ -423,16 +465,18 @@ const CanvasEditorInner = () => {
       return;
     }
 
-    const source = nodesRef.current.find((entry) => entry.id === selectedNodeId);
+    const source = nodesRef.current.find(
+      (entry) => entry.id === selectedNodeId,
+    );
     if (!source) {
       return;
     }
 
     const sourceData = (source.data as ScreepsNodeData) ?? {
-      kind: '',
-      label: '',
-      family: 'flow',
-      config: {}
+      kind: "",
+      label: "",
+      family: "flow",
+      config: {},
     };
 
     const definition = NODE_DEFINITION_MAP[sourceData.kind];
@@ -442,13 +486,13 @@ const CanvasEditorInner = () => {
 
     const offsetPosition = snapPosition({
       x: source.position.x + GRID_SIZE,
-      y: source.position.y + GRID_SIZE
+      y: source.position.y + GRID_SIZE,
     });
 
     const clone = instantiateNode(definition, offsetPosition);
     clone.data = {
       ...JSON.parse(JSON.stringify(sourceData)),
-      editing: false
+      editing: false,
     } as ScreepsNodeData;
 
     setNodes((current) => [...current, clone]);
@@ -461,7 +505,10 @@ const CanvasEditorInner = () => {
   }, []);
 
   const clearPortPreview = useCallback(
-    (targetId: string | null | undefined, targetHandle: string | null | undefined) => {
+    (
+      targetId: string | null | undefined,
+      targetHandle: string | null | undefined,
+    ) => {
       if (!targetId || !targetHandle) {
         return;
       }
@@ -473,10 +520,10 @@ const CanvasEditorInner = () => {
           }
 
           const currentData = (node.data as ScreepsNodeData) ?? {
-            kind: '',
-            label: '',
-            family: 'flow',
-            config: {}
+            kind: "",
+            label: "",
+            family: "flow",
+            config: {},
           };
 
           if (!currentData.portPreviews?.[targetHandle]) {
@@ -490,13 +537,13 @@ const CanvasEditorInner = () => {
             ...node,
             data: {
               ...currentData,
-              portPreviews: previews
-            }
+              portPreviews: previews,
+            },
           };
-        })
+        }),
       );
     },
-    [setNodes]
+    [setNodes],
   );
 
   const handleSelectionChange = useCallback(
@@ -506,10 +553,10 @@ const CanvasEditorInner = () => {
       setNodes((current) =>
         current.map((node) => {
           const data = (node.data as ScreepsNodeData) ?? {
-            kind: '',
-            label: '',
-            family: 'flow',
-            config: {}
+            kind: "",
+            label: "",
+            family: "flow",
+            config: {},
           };
 
           if (first && node.id === first.id) {
@@ -524,24 +571,28 @@ const CanvasEditorInner = () => {
             ...node,
             data: {
               ...data,
-              editing: false
-            }
+              editing: false,
+            },
           };
-        })
+        }),
       );
     },
-    [setNodes]
+    [setNodes],
   );
 
   const deleteNodeById = useCallback(
     (nodeId: string) => {
       setNodes((current) => current.filter((node) => node.id !== nodeId));
-      setEdges((current) => current.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+      setEdges((current) =>
+        current.filter(
+          (edge) => edge.source !== nodeId && edge.target !== nodeId,
+        ),
+      );
       setSelectedNodeId((current) => (current === nodeId ? null : current));
       setPendingDeleteId(null);
       scheduleGraphSave();
     },
-    [scheduleGraphSave, setEdges, setNodes]
+    [scheduleGraphSave, setEdges, setNodes],
   );
 
   useEffect(() => {
@@ -571,14 +622,17 @@ const CanvasEditorInner = () => {
         return;
       }
       const rect = wrapperRef.current.getBoundingClientRect();
-      pointerRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      pointerRef.current = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      };
       updateToolbarAnchor();
     };
 
     handleResize();
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
     };
   }, [updateToolbarAnchor]);
 
@@ -590,26 +644,32 @@ const CanvasEditorInner = () => {
     onEnd: (viewport: Viewport) => {
       updateToolbarAnchor();
       updateGridOffset(viewport);
-    }
+    },
   });
 
   useEffect(() => {
     updateGridOffset();
   }, [updateGridOffset]);
 
-  useEffect(() => () => {
-    if (localSaveTimer.current) {
-      window.clearTimeout(localSaveTimer.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (localSaveTimer.current) {
+        window.clearTimeout(localSaveTimer.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     registerGraphSerializer(() => {
       try {
-        const snapshot = toObject() as ReactFlowJsonObject<Node<ScreepsNodeData>, Edge>;
+        const snapshot = toObject() as ReactFlowJsonObject<
+          Node<ScreepsNodeData>,
+          Edge
+        >;
         return buildGraphStateFromSnapshot(snapshot);
       } catch (error) {
-        console.warn('Failed to serialise graph', error);
+        console.warn("Failed to serialise graph", error);
         return null;
       }
     });
@@ -651,10 +711,15 @@ const CanvasEditorInner = () => {
   const onConnect = useCallback(
     (connection: Connection | Edge) => {
       setEdges((eds) => addEdge(connection, eds));
-      applyPortPreview(connection.target, connection.targetHandle, connection.source, connection.sourceHandle);
+      applyPortPreview(
+        connection.target,
+        connection.targetHandle,
+        connection.source,
+        connection.sourceHandle,
+      );
       scheduleGraphSave();
     },
-    [applyPortPreview, scheduleGraphSave, setEdges]
+    [applyPortPreview, scheduleGraphSave, setEdges],
   );
 
   const onNodesChange = useCallback(
@@ -662,7 +727,7 @@ const CanvasEditorInner = () => {
       applyNodeChanges(changes);
       scheduleGraphSave();
     },
-    [applyNodeChanges, scheduleGraphSave]
+    [applyNodeChanges, scheduleGraphSave],
   );
 
   const onEdgesChange = useCallback(
@@ -670,7 +735,7 @@ const CanvasEditorInner = () => {
       applyEdgeChanges(changes);
 
       changes
-        .filter((change) => change.type === 'remove')
+        .filter((change) => change.type === "remove")
         .forEach((change) => {
           const edge = edgesRef.current.find((entry) => entry.id === change.id);
           if (edge) {
@@ -680,7 +745,7 @@ const CanvasEditorInner = () => {
 
       scheduleGraphSave();
     },
-    [applyEdgeChanges, clearPortPreview, scheduleGraphSave]
+    [applyEdgeChanges, clearPortPreview, scheduleGraphSave],
   );
 
   const onDrop = useCallback(
@@ -690,7 +755,9 @@ const CanvasEditorInner = () => {
         return;
       }
 
-      const nodeKind = event.dataTransfer.getData('application/screeps-node-kind');
+      const nodeKind = event.dataTransfer.getData(
+        "application/screeps-node-kind",
+      );
       const definition = NODE_DEFINITION_MAP[nodeKind];
       if (!definition) {
         return;
@@ -710,36 +777,39 @@ const CanvasEditorInner = () => {
       const position = snapPosition(
         screenToFlowPosition({
           x: event.clientX,
-          y: event.clientY
-        })
+          y: event.clientY,
+        }),
       );
 
       spawnNode(definition, position);
     },
-    [activeFileId, screenToFlowPosition, spawnNode]
+    [activeFileId, screenToFlowPosition, spawnNode],
   );
 
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
+    event.dataTransfer.dropEffect = "move";
   }, []);
 
-  const normaliseWheelDelta = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
-    const nativeEvent = event.nativeEvent;
-    let delta = nativeEvent.deltaY;
+  const normaliseWheelDelta = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      const nativeEvent = event.nativeEvent;
+      let delta = nativeEvent.deltaY;
 
-    if (nativeEvent.deltaMode === 1) {
-      delta *= 16;
-    } else if (nativeEvent.deltaMode === 2) {
-      delta *= 100;
-    }
+      if (nativeEvent.deltaMode === 1) {
+        delta *= 16;
+      } else if (nativeEvent.deltaMode === 2) {
+        delta *= 100;
+      }
 
-    if (delta === 0 && nativeEvent.deltaX !== 0) {
-      delta = nativeEvent.deltaX;
-    }
+      if (delta === 0 && nativeEvent.deltaX !== 0) {
+        delta = nativeEvent.deltaX;
+      }
 
-    return delta;
-  }, []);
+      return delta;
+    },
+    [],
+  );
 
   const handleWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {
@@ -756,7 +826,7 @@ const CanvasEditorInner = () => {
         const updated = {
           x: viewport.x - delta * 0.6,
           y: viewport.y,
-          zoom: viewport.zoom
+          zoom: viewport.zoom,
         };
         setViewport(updated);
         setGridOffset(computeGridOffset(updated));
@@ -771,7 +841,7 @@ const CanvasEditorInner = () => {
         const updated = {
           x: viewport.x,
           y: viewport.y - delta * 0.7,
-          zoom: viewport.zoom
+          zoom: viewport.zoom,
         };
         setViewport(updated);
         setGridOffset(computeGridOffset(updated));
@@ -791,8 +861,8 @@ const CanvasEditorInner = () => {
       normaliseWheelDelta,
       scheduleGraphSave,
       setGridOffset,
-      setViewport
-    ]
+      setViewport,
+    ],
   );
 
   useEffect(() => {
@@ -808,12 +878,14 @@ const CanvasEditorInner = () => {
       const target = event.target as HTMLElement | null;
       if (
         target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
       ) {
         return;
       }
 
-      if (event.key === 'Delete' || event.key === 'Backspace') {
+      if (event.key === "Delete" || event.key === "Backspace") {
         const selectedNodes = nodesRef.current.filter((node) => node.selected);
         const selectedEdges = edgesRef.current.filter((edge) => edge.selected);
 
@@ -826,14 +898,15 @@ const CanvasEditorInner = () => {
         if (selectedNodes.length === 1) {
           const node = selectedNodes[0];
           const data = (node.data as ScreepsNodeData) ?? {
-            kind: '',
-            label: '',
-            family: 'flow',
-            config: {}
+            kind: "",
+            label: "",
+            family: "flow",
+            config: {},
           };
           const definition = NODE_DEFINITION_MAP[data.kind];
           const requiresConfirm = definition
-            ? stableStringify(data.config ?? {}) !== stableStringify(definition.defaultConfig ?? {})
+            ? stableStringify(data.config ?? {}) !==
+              stableStringify(definition.defaultConfig ?? {})
             : false;
 
           if (requiresConfirm) {
@@ -859,28 +932,28 @@ const CanvasEditorInner = () => {
         return;
       }
 
-      if (event.key === 'e' || event.key === 'E') {
+      if (event.key === "e" || event.key === "E") {
         event.preventDefault();
         handleToggleEdit();
         return;
       }
 
-      if (event.key === 'd' || event.key === 'D') {
+      if (event.key === "d" || event.key === "D") {
         event.preventDefault();
         handleDuplicateNode();
         return;
       }
 
-      if (event.key === '?') {
+      if (event.key === "?") {
         event.preventDefault();
         setHelpOpen(true);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [
     activeFileId,
@@ -891,7 +964,7 @@ const CanvasEditorInner = () => {
     selectedNodeId,
     setPendingDeleteId,
     setEdges,
-    setSelectedNodeId
+    setSelectedNodeId,
   ]);
 
   useEffect(() => {
@@ -900,9 +973,9 @@ const CanvasEditorInner = () => {
       flushPendingSaves();
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [flushPendingSaves, scheduleGraphSave]);
 
@@ -912,32 +985,32 @@ const CanvasEditorInner = () => {
         Select a file from the tree to start designing a workflow.
       </div>
     ),
-    []
+    [],
   );
 
   const showFlow = Boolean(activeFileId);
 
   const defaultEdgeOptions = useMemo(
     () => ({
-      type: 'smoothstep',
+      type: "smoothstep",
       animated: true,
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: '#5a6169',
+        color: "#5a6169",
         width: 14,
-        height: 14
+        height: 14,
       },
       style: {
-        stroke: '#5a6169',
-        strokeWidth: 1.5
-      }
+        stroke: "#5a6169",
+        strokeWidth: 1.5,
+      },
     }),
-    []
+    [],
   );
 
   const selectedNode = useMemo(
     () => nodes.find((node) => node.id === selectedNodeId) ?? null,
-    [nodes, selectedNodeId]
+    [nodes, selectedNodeId],
   );
   const selectedData = selectedNode?.data as ScreepsNodeData | undefined;
   const selectedDefinition = useMemo(() => {
@@ -961,7 +1034,7 @@ const CanvasEditorInner = () => {
 
   const helpMarkdown = useMemo(() => {
     if (!selectedMeta) {
-      return '';
+      return "";
     }
     return getDocMarkdown(selectedMeta.kind);
   }, [selectedMeta]);
@@ -972,7 +1045,10 @@ const CanvasEditorInner = () => {
     }
     return {
       x: toolbarAnchor.left + toolbarAnchor.width / 2,
-      y: toolbarPlacement === 'below' ? toolbarAnchor.bottom + 12 : toolbarAnchor.top - 12
+      y:
+        toolbarPlacement === "below"
+          ? toolbarAnchor.bottom + 12
+          : toolbarAnchor.top - 12,
     };
   }, [toolbarAnchor, toolbarPlacement]);
 
@@ -1015,7 +1091,10 @@ const CanvasEditorInner = () => {
           return;
         }
         const rect = wrapperRef.current.getBoundingClientRect();
-        pointerRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        pointerRef.current = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        };
       }}
     >
       {showFlow ? (
@@ -1037,9 +1116,9 @@ const CanvasEditorInner = () => {
           className="neo-flow"
           style={
             {
-              '--grid-size': `${gridVisualGap}px`,
-              '--grid-offset-x': `${gridOffset.x}px`,
-              '--grid-offset-y': `${gridOffset.y}px`
+              "--grid-size": `${gridVisualGap}px`,
+              "--grid-offset-x": `${gridOffset.x}px`,
+              "--grid-offset-y": `${gridOffset.y}px`,
             } as CSSProperties
           }
           onSelectionChange={handleSelectionChange as any}
@@ -1057,10 +1136,10 @@ const CanvasEditorInner = () => {
                 existing.id === node.id
                   ? {
                       ...existing,
-                      position: snapped
+                      position: snapped,
                     }
-                  : existing
-              )
+                  : existing,
+              ),
             );
           }}
           onNodeDragStop={(_, node) => {
@@ -1069,10 +1148,10 @@ const CanvasEditorInner = () => {
                 existing.id === node.id
                   ? {
                       ...existing,
-                      position: snapPosition(node.position)
+                      position: snapPosition(node.position),
                     }
-                  : existing
-              )
+                  : existing,
+              ),
             );
             scheduleGraphSave();
           }}
@@ -1080,7 +1159,12 @@ const CanvasEditorInner = () => {
             pointerRef.current = { x: event.clientX, y: event.clientY };
           }}
         >
-          <Background gap={gridVisualGap} color="#1c1d1f" lineWidth={1} variant={BackgroundVariant.Lines} />
+          <Background
+            gap={gridVisualGap}
+            color="#1c1d1f"
+            lineWidth={1}
+            variant={BackgroundVariant.Lines}
+          />
         </ReactFlow>
       ) : (
         emptyState
@@ -1103,7 +1187,7 @@ const CanvasEditorInner = () => {
       <NodeHelpPopover
         open={helpOpen && Boolean(selectedMeta)}
         anchor={helpAnchor}
-        title={selectedMeta?.title ?? ''}
+        title={selectedMeta?.title ?? ""}
         markdown={helpMarkdown}
         onClose={() => setHelpOpen(false)}
       />

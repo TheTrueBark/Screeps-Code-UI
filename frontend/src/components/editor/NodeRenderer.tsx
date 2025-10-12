@@ -32,13 +32,46 @@ export interface IOPortRow {
   control?: ReactNode;
 }
 
-const familyPalette: Record<NodeFamily, { accent: string; port: string; badge: string; tint: string }> = {
-  flow: { accent: "var(--cyan)", port: "var(--cyan)", badge: "FLOW", tint: "#101820" },
-  query: { accent: "var(--yellow)", port: "var(--yellow)", badge: "QUERY", tint: "#18140a" },
-  creep: { accent: "#8b8f97", port: "#8b8f97", badge: "CREEP", tint: "#141414" },
-  structure: { accent: "#8b8f97", port: "#8b8f97", badge: "STRUCT", tint: "#141414" },
-  memory: { accent: "var(--purple)", port: "var(--purple)", badge: "MEM", tint: "#140f1b" },
-  task: { accent: "var(--yellow)", port: "var(--yellow)", badge: "TASK", tint: "#18140a" },
+const familyPalette: Record<
+  NodeFamily,
+  { accent: string; port: string; badge: string; tint: string }
+> = {
+  flow: {
+    accent: "var(--cyan)",
+    port: "var(--cyan)",
+    badge: "FLOW",
+    tint: "#101820",
+  },
+  query: {
+    accent: "var(--yellow)",
+    port: "var(--yellow)",
+    badge: "QUERY",
+    tint: "#18140a",
+  },
+  creep: {
+    accent: "#8b8f97",
+    port: "#8b8f97",
+    badge: "CREEP",
+    tint: "#141414",
+  },
+  structure: {
+    accent: "#8b8f97",
+    port: "#8b8f97",
+    badge: "STRUCT",
+    tint: "#141414",
+  },
+  memory: {
+    accent: "var(--purple)",
+    port: "var(--purple)",
+    badge: "MEM",
+    tint: "#140f1b",
+  },
+  task: {
+    accent: "var(--yellow)",
+    port: "var(--yellow)",
+    badge: "TASK",
+    tint: "#18140a",
+  },
 };
 
 const PORT_SIZE = 6;
@@ -47,6 +80,12 @@ const portStyle: CSSProperties = {
   width: PORT_SIZE,
   height: PORT_SIZE,
   borderRadius: PORT_SIZE / 2,
+  position: "static",
+  left: "auto",
+  right: "auto",
+  top: "auto",
+  bottom: "auto",
+  transform: "none",
 };
 
 const clampRows = (rows: IOPortRow[]): IOPortRow[] =>
@@ -98,7 +137,10 @@ const mergePortsIntoRows = (
     return clampRows(
       fallbackRows.map((row) => ({
         ...row,
-        preview: row.preview ?? (row.inputPort ? previews?.[row.inputPort] : undefined) ?? (row.outputPort ? previews?.[row.outputPort] : undefined),
+        preview:
+          row.preview ??
+          (row.inputPort ? previews?.[row.inputPort] : undefined) ??
+          (row.outputPort ? previews?.[row.outputPort] : undefined),
       })),
     );
   }
@@ -170,7 +212,11 @@ const Row = ({
 
   const content = row.control ?? (
     <div className="node-grid-preview" title={row.preview ?? row.placeholder}>
-      {row.preview ? <code>{row.preview}</code> : <span>{row.placeholder ?? ""}</span>}
+      {row.preview ? (
+        <code>{row.preview}</code>
+      ) : (
+        <span>{row.placeholder ?? ""}</span>
+      )}
     </div>
   );
 
@@ -190,8 +236,16 @@ const Row = ({
         )}
       </div>
       <div className="node-grid-label" title={row.label}>
-        <span className="node-grid-label-icon" aria-hidden="true" style={{ color: palette.accent }}>
-          {Icon ? <Icon className="node-io-icon" /> : definition.subtitle?.slice(0, 1) ?? "•"}
+        <span
+          className="node-grid-label-icon"
+          aria-hidden="true"
+          style={{ color: palette.accent }}
+        >
+          {Icon ? (
+            <Icon className="node-io-icon" />
+          ) : (
+            (definition.subtitle?.slice(0, 1) ?? "•")
+          )}
         </span>
         <span className="node-grid-label-text">{row.label}</span>
       </div>
@@ -239,7 +293,9 @@ export const NodeRenderer = ({
   children,
 }: NodeRendererProps) => {
   const resolvedMeta = meta ?? getNodeMeta(node.data.kind);
-  const paletteSource = resolvedMeta ? familyPalette[resolvedMeta.family] : familyPalette[node.data.family];
+  const paletteSource = resolvedMeta
+    ? familyPalette[resolvedMeta.family]
+    : familyPalette[node.data.family];
   const palette = paletteSource ?? familyPalette.flow;
   const headerRef = useRef<HTMLDivElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
@@ -255,7 +311,15 @@ export const NodeRenderer = ({
         rows ?? node.data.rows,
         node.data.portPreviews as Record<string, string> | undefined,
       ),
-    [resolvedMeta, dataInputs, dataOutputs, slots, rows, node.data.rows, node.data.portPreviews],
+    [
+      resolvedMeta,
+      dataInputs,
+      dataOutputs,
+      slots,
+      rows,
+      node.data.rows,
+      node.data.portPreviews,
+    ],
   );
 
   const visibleRows = useMemo(() => {
@@ -282,7 +346,8 @@ export const NodeRenderer = ({
   }, [resolvedMeta?.autoExpand, visibleRows, updateHeight]);
 
   const status = node.data.status;
-  const badge = status === "error" ? "ERR" : status === "warning" ? "WARN" : palette.badge;
+  const badge =
+    status === "error" ? "ERR" : status === "warning" ? "WARN" : palette.badge;
 
   const nodeClass = cn("oled-node", {
     disabled: node.data.disabled,
@@ -301,40 +366,61 @@ export const NodeRenderer = ({
         return <Icon className="oled-node-icon-glyph" />;
       }
     }
-    return <span className="oled-node-icon-fallback">{resolvedMeta?.acronym ?? definition.title.slice(0, 2).toUpperCase()}</span>;
+    return (
+      <span className="oled-node-icon-fallback">
+        {resolvedMeta?.acronym ?? definition.title.slice(0, 2).toUpperCase()}
+      </span>
+    );
   }, [definition.title, resolvedMeta?.acronym, resolvedMeta?.icon]);
 
   return (
     <div
       className={nodeClass}
       data-node-id={nodeId}
-      style={{ "--node-accent": resolvedMeta?.color ?? palette.accent, "--node-port": palette.port } as CSSProperties}
+      style={
+        {
+          "--node-accent": resolvedMeta?.color ?? palette.accent,
+          "--node-port": palette.port,
+        } as CSSProperties
+      }
     >
-      {definition.hasFlowInput !== false ? (
-        <Handle id="flow:in" type="target" position={Position.Left} className="node-flow-port" />
-      ) : null}
-      {definition.hasFlowOutput !== false ? (
-        <Handle id="flow:out" type="source" position={Position.Right} className="node-flow-port" />
-      ) : null}
       <div className="oled-node-surface">
-        <header ref={headerRef} className="oled-node-header" style={headerStyle}>
+        <header
+          ref={headerRef}
+          className="oled-node-header"
+          style={headerStyle}
+        >
           <div className="oled-node-title">
             <span className="oled-node-icon" aria-hidden="true">
               {headerIcon}
             </span>
             <div className="oled-node-text">
-              <span className="oled-node-name">{resolvedMeta?.title ?? definition.title}</span>
+              <span className="oled-node-name">
+                {resolvedMeta?.title ?? definition.title}
+              </span>
             </div>
           </div>
           <div className="oled-node-meta">
-            {status ? <span className={cn("oled-node-status", status)}>{status}</span> : null}
+            {status ? (
+              <span className={cn("oled-node-status", status)}>{status}</span>
+            ) : null}
             <span className="oled-node-badge">{badge}</span>
           </div>
         </header>
-        <div className="oled-node-rows" ref={rowsRef} style={{ height: height ?? "auto" }}>
+        <div
+          className="oled-node-rows"
+          ref={rowsRef}
+          style={{ height: height ?? "auto" }}
+        >
           <div className="oled-node-rows-inner">
             {visibleRows.map((row) => (
-              <Row key={row.key} definition={definition} data={node.data} row={row} meta={resolvedMeta} />
+              <Row
+                key={row.key}
+                definition={definition}
+                data={node.data}
+                row={row}
+                meta={resolvedMeta}
+              />
             ))}
             {visibleRows.length === 0 ? (
               <div className="node-empty">No inputs or outputs</div>
@@ -342,7 +428,9 @@ export const NodeRenderer = ({
             {children}
           </div>
         </div>
-        {node.data.meta ? <footer className="oled-node-footer">{node.data.meta}</footer> : null}
+        {node.data.meta ? (
+          <footer className="oled-node-footer">{node.data.meta}</footer>
+        ) : null}
       </div>
     </div>
   );

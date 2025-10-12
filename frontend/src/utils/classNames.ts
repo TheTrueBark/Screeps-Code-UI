@@ -16,12 +16,12 @@ export function cn(...values: ClassValue[]): string {
   for (const value of values) {
     if (!value) continue;
 
-    if (typeof value === 'string' || typeof value === 'number') {
+    if (typeof value === "string" || typeof value === "number") {
       classes.push(String(value));
       continue;
     }
 
-    if (typeof value === 'object') {
+    if (typeof value === "object") {
       for (const [key, condition] of Object.entries(value)) {
         if (condition) {
           classes.push(key);
@@ -30,7 +30,7 @@ export function cn(...values: ClassValue[]): string {
     }
   }
 
-  return classes.join(' ');
+  return classes.join(" ");
 }
 
 export default cn;

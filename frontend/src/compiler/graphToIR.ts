@@ -1,6 +1,13 @@
-import type { FileIR, GraphEdge, GraphNode, GraphState, NodeIR, PortRef } from '@shared/types';
-import { NODE_DEFINITION_MAP } from '../components/editor/nodeRegistry';
-import type { NodeDefinition } from '../components/editor/NodeTypes/types';
+import type {
+  FileIR,
+  GraphEdge,
+  GraphNode,
+  GraphState,
+  NodeIR,
+  PortRef,
+} from "@shared/types";
+import { NODE_DEFINITION_MAP } from "../components/editor/nodeRegistry";
+import type { NodeDefinition } from "../components/editor/NodeTypes/types";
 
 export interface BuildIrResult {
   file: FileIR | null;
@@ -8,19 +15,20 @@ export interface BuildIrResult {
   warnings: Array<{ nodeId?: string; message: string }>;
 }
 
-const literalRef = (value: unknown): PortRef => ({ refType: 'literal', value });
+const literalRef = (value: unknown): PortRef => ({ refType: "literal", value });
 
 const cloneConfig = (config: Record<string, unknown> | undefined) =>
   JSON.parse(JSON.stringify(config ?? {}));
 
-const getDefinition = (kind: string): NodeDefinition | undefined => NODE_DEFINITION_MAP[kind];
+const getDefinition = (kind: string): NodeDefinition | undefined =>
+  NODE_DEFINITION_MAP[kind];
 
 const getGraphNodes = (graph: GraphState): GraphNode[] =>
   (graph.xyflow.nodes ?? []).map((node) => ({
     id: node.id,
-    type: node.type ?? '',
+    type: node.type ?? "",
     position: node.position,
-    data: (node.data ?? {}) as GraphNode['data']
+    data: (node.data ?? {}) as GraphNode["data"],
   }));
 
 const getGraphEdges = (graph: GraphState): GraphEdge[] =>
@@ -29,10 +37,13 @@ const getGraphEdges = (graph: GraphState): GraphEdge[] =>
     source: edge.source,
     target: edge.target,
     sourceHandle: edge.sourceHandle ?? null,
-    targetHandle: edge.targetHandle ?? null
+    targetHandle: edge.targetHandle ?? null,
   }));
 
-export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult => {
+export const buildFileIR = (
+  fileId: string,
+  graph: GraphState,
+): BuildIrResult => {
   const errors: Array<{ nodeId?: string; message: string }> = [];
   const warnings: Array<{ nodeId?: string; message: string }> = [];
 
@@ -42,8 +53,8 @@ export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult =>
   if (nodes.length === 0) {
     return {
       file: null,
-      errors: [{ message: 'Graph is empty. Add nodes to compile.' }],
-      warnings
+      errors: [{ message: "Graph is empty. Add nodes to compile." }],
+      warnings,
     };
   }
 
@@ -64,22 +75,31 @@ export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult =>
 
   const nodeIrs: NodeIR[] = [];
   let entryNodeId: string | null = null;
-  const taskDefs: FileIR['taskDefs'] = [];
-  const definedTasks = new Map<string, { params: Array<{ key: string; type: string; default?: unknown }>; nodeId: string }>();
+  const taskDefs: FileIR["taskDefs"] = [];
+  const definedTasks = new Map<
+    string,
+    {
+      params: Array<{ key: string; type: string; default?: unknown }>;
+      nodeId: string;
+    }
+  >();
 
   nodes.forEach((node) => {
     const definition = getDefinition(node.data.kind);
     if (!definition) {
       errors.push({
         nodeId: node.id,
-        message: `Unknown node kind "${node.data.kind}". Update the node library.`
+        message: `Unknown node kind "${node.data.kind}". Update the node library.`,
       });
       return;
     }
 
-    if (node.data.kind === 'flow.start') {
+    if (node.data.kind === "flow.start") {
       if (entryNodeId) {
-        errors.push({ nodeId: node.id, message: 'Only one Start node is allowed per file.' });
+        errors.push({
+          nodeId: node.id,
+          message: "Only one Start node is allowed per file.",
+        });
       } else {
         entryNodeId = node.id;
       }
@@ -89,14 +109,14 @@ export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult =>
     const incoming = edgesTo.get(node.id) ?? [];
 
     const flowOutputs = outgoing
-      .filter((edge) => !edge.sourceHandle || edge.sourceHandle === 'flow:out')
+      .filter((edge) => !edge.sourceHandle || edge.sourceHandle === "flow:out")
       .map((edge) => edge.target);
 
     const slots: Record<string, string[]> = {};
     outgoing
-      .filter((edge) => edge.sourceHandle?.startsWith('slot:'))
+      .filter((edge) => edge.sourceHandle?.startsWith("slot:"))
       .forEach((edge) => {
-        const slotName = edge.sourceHandle?.slice(5) ?? 'default';
+        const slotName = edge.sourceHandle?.slice(5) ?? "default";
         if (!slots[slotName]) {
           slots[slotName] = [];
         }
@@ -107,14 +127,19 @@ export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult =>
     const config = cloneConfig(node.data.config as Record<string, unknown>);
 
     definition.dataInputs?.forEach((inputDef) => {
-      const match = incoming.find((edge) => edge.targetHandle === inputDef.handleId);
+      const match = incoming.find(
+        (edge) => edge.targetHandle === inputDef.handleId,
+      );
       if (match) {
         inputs[inputDef.name] = {
-          refType: 'edge',
+          refType: "edge",
           fromNodeId: match.source,
-          port: match.sourceHandle ?? 'flow:out'
+          port: match.sourceHandle ?? "flow:out",
         };
-      } else if (inputDef.configKey && config[inputDef.configKey] !== undefined) {
+      } else if (
+        inputDef.configKey &&
+        config[inputDef.configKey] !== undefined
+      ) {
         inputs[inputDef.name] = literalRef(config[inputDef.configKey]);
       } else if (inputDef.optional) {
         inputs[inputDef.name] = literalRef(undefined);
@@ -122,7 +147,7 @@ export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult =>
         inputs[inputDef.name] = literalRef(undefined);
         warnings.push({
           nodeId: node.id,
-          message: `Input "${inputDef.label}" is not connected.`
+          message: `Input "${inputDef.label}" is not connected.`,
         });
       }
     });
@@ -131,55 +156,80 @@ export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult =>
     const nodeIr: NodeIR = {
       id: node.id,
       kind:
-        node.data.kind === 'flow.break' && config.mode === 'continue'
-          ? 'flow.continue'
-          : (node.data.kind as NodeIR['kind']),
+        node.data.kind === "flow.break" && config.mode === "continue"
+          ? "flow.continue"
+          : (node.data.kind as NodeIR["kind"]),
       inputs,
       outputs: flowOutputs,
       slots: slotKeys.length > 0 ? slots : undefined,
-      config
+      config,
     };
 
     nodeIrs.push(nodeIr);
 
-    if (nodeIr.kind === 'task.define') {
-      const name = typeof config.taskName === 'string' && config.taskName.trim().length > 0 ? config.taskName.trim() : undefined;
+    if (nodeIr.kind === "task.define") {
+      const name =
+        typeof config.taskName === "string" && config.taskName.trim().length > 0
+          ? config.taskName.trim()
+          : undefined;
       if (!name) {
-        errors.push({ nodeId: node.id, message: 'Task definition requires a task name.' });
+        errors.push({
+          nodeId: node.id,
+          message: "Task definition requires a task name.",
+        });
       }
 
       const params = Array.isArray(config.params)
-        ? (config.params as Array<{ key: string; type: string; default?: unknown }>).
-            filter((param) => typeof param?.key === 'string' && typeof param?.type === 'string')
+        ? (
+            config.params as Array<{
+              key: string;
+              type: string;
+              default?: unknown;
+            }>
+          ).filter(
+            (param) =>
+              typeof param?.key === "string" && typeof param?.type === "string",
+          )
         : [];
 
       const bodyEntry = nodeIr.slots?.body?.[0];
       if (!bodyEntry) {
-        warnings.push({ nodeId: node.id, message: 'Task has no body branch.' });
+        warnings.push({ nodeId: node.id, message: "Task has no body branch." });
       }
 
       if (name) {
         definedTasks.set(name, { params, nodeId: node.id });
-        taskDefs?.push({ name, params, entryNodeId: bodyEntry ?? '' });
+        taskDefs?.push({ name, params, entryNodeId: bodyEntry ?? "" });
       }
     }
   });
 
-  const callsNeedingValidation = nodeIrs.filter((node) => node.kind === 'task.call');
+  const callsNeedingValidation = nodeIrs.filter(
+    (node) => node.kind === "task.call",
+  );
   callsNeedingValidation.forEach((node) => {
-    const taskName = typeof node.config.taskName === 'string' ? node.config.taskName : undefined;
+    const taskName =
+      typeof node.config.taskName === "string"
+        ? node.config.taskName
+        : undefined;
     if (!taskName) {
-      errors.push({ nodeId: node.id, message: 'Task call is missing a task name.' });
+      errors.push({
+        nodeId: node.id,
+        message: "Task call is missing a task name.",
+      });
       return;
     }
 
     if (!definedTasks.has(taskName)) {
-      errors.push({ nodeId: node.id, message: `Task "${taskName}" is not defined in this file.` });
+      errors.push({
+        nodeId: node.id,
+        message: `Task "${taskName}" is not defined in this file.`,
+      });
     }
   });
 
   if (!entryNodeId) {
-    errors.push({ message: 'Each file must include a Start node.' });
+    errors.push({ message: "Each file must include a Start node." });
   }
 
   if (errors.length > 0) {
@@ -191,9 +241,9 @@ export const buildFileIR = (fileId: string, graph: GraphState): BuildIrResult =>
       fileId,
       entryNodeId: entryNodeId!,
       nodes: nodeIrs,
-      taskDefs: taskDefs && taskDefs.length > 0 ? taskDefs : undefined
+      taskDefs: taskDefs && taskDefs.length > 0 ? taskDefs : undefined,
     },
     errors,
-    warnings
+    warnings,
   };
 };

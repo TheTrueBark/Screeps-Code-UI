@@ -37,7 +37,7 @@ export const FloatingCatalog = ({
   onPinChange,
   onSpawn,
   selectedMeta,
-  onSelectedHelp
+  onSelectedHelp,
 }: FloatingCatalogProps) => {
   const activeFileId = useFileStore((state) => state.activeFileId);
   const [query, setQuery] = useState("");
@@ -50,7 +50,10 @@ export const FloatingCatalog = ({
     }
   }, [open, pinned]);
 
-  const handleDragStart = (event: DragEvent<HTMLButtonElement>, kind: string) => {
+  const handleDragStart = (
+    event: DragEvent<HTMLButtonElement>,
+    kind: string,
+  ) => {
     if (!activeFileId) {
       event.preventDefault();
       return;
@@ -86,7 +89,7 @@ export const FloatingCatalog = ({
       [node.title, node.docs.summary, node.category]
         .join(" ")
         .toLowerCase()
-        .includes(term)
+        .includes(term),
     );
   }, [groups, activeTab, query]);
 
@@ -119,7 +122,9 @@ export const FloatingCatalog = ({
                 key={key}
                 type="button"
                 role="tab"
-                className={cn("floating-catalog-tab", { active: activeTab === key })}
+                className={cn("floating-catalog-tab", {
+                  active: activeTab === key,
+                })}
                 onClick={() => setActiveTab(key)}
               >
                 {label}
@@ -171,7 +176,10 @@ export const FloatingCatalog = ({
               onClick={() => handleTileClick(definition.kind)}
               title={definition.docs.summary}
             >
-              <span className="tile-acronym">{definition.acronym ?? definition.title.slice(0, 2).toUpperCase()}</span>
+              <span className="tile-acronym">
+                {definition.acronym ??
+                  definition.title.slice(0, 2).toUpperCase()}
+              </span>
               <span className="tile-label">{definition.title}</span>
             </button>
           ))}
@@ -179,7 +187,11 @@ export const FloatingCatalog = ({
             <div className="floating-catalog-empty">No nodes</div>
           ) : null}
         </div>
-        {disabled ? <div className="floating-catalog-hint">Select a file to enable nodes.</div> : null}
+        {disabled ? (
+          <div className="floating-catalog-hint">
+            Select a file to enable nodes.
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
-import { EditorLayout } from './components/layout/EditorLayout';
-import './components/theme/DarkTheme.css';
-import { useFileStore } from './state/fileStore';
-import { DEFAULT_FILE_TREE, DEFAULT_WORKSPACE_ID } from './state/defaultFileTree';
+import { useEffect, useRef, useState } from "react";
+import { EditorLayout } from "./components/layout/EditorLayout";
+import "./components/theme/DarkTheme.css";
+import { useFileStore } from "./state/fileStore";
+import {
+  DEFAULT_FILE_TREE,
+  DEFAULT_WORKSPACE_ID,
+} from "./state/defaultFileTree";
 
 /**
  * Entry point for the Screeps visual IDE prototype.
  */
 export const App = () => {
-  const [output, setOutput] = useState('');
+  const [output, setOutput] = useState("");
   const initializedRef = useRef(false);
   const initWorkspace = useFileStore((state) => state.initWorkspace);
 

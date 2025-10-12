@@ -1,17 +1,17 @@
-import type { NodeIR } from '@shared/types';
-import type { NodeProps } from '@xyflow/react';
-import type { NodeFamily } from '../../../data/nodeRegistry/schema';
+import type { NodeIR } from "@shared/types";
+import type { NodeProps } from "@xyflow/react";
+import type { NodeFamily } from "../../../data/nodeRegistry/schema";
 
 export type ConfigField =
   | {
-      type: 'text';
+      type: "text";
       name: string;
       label: string;
       placeholder?: string;
       helper?: string;
     }
   | {
-      type: 'number';
+      type: "number";
       name: string;
       label: string;
       min?: number;
@@ -20,20 +20,20 @@ export type ConfigField =
       helper?: string;
     }
   | {
-      type: 'select';
+      type: "select";
       name: string;
       label: string;
       options: Array<{ value: string; label: string }>;
       helper?: string;
     }
   | {
-      type: 'checkbox';
+      type: "checkbox";
       name: string;
       label: string;
       helper?: string;
     }
   | {
-      type: 'json';
+      type: "json";
       name: string;
       label: string;
       helper?: string;
@@ -60,7 +60,7 @@ export interface DataOutputDefinition {
 }
 
 export interface NodeDefinition {
-  kind: NodeIR['kind'];
+  kind: NodeIR["kind"];
   type: string;
   title: string;
   subtitle?: string;
