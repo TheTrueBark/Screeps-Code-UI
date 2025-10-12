@@ -33,6 +33,7 @@ const CanvasEditorInner = () => {
   const { screenToFlowPosition, toObject, zoomIn, zoomOut, fitView, getZoom } =
     useReactFlow<Node<ScreepsNodeData>, Edge>();
   const [zoomDisplay, setZoomDisplay] = useState('100%');
+  const [snapToGrid, setSnapToGrid] = useState(false);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreepsNodeData>>(graph.nodes as Node<ScreepsNodeData>[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
@@ -200,6 +201,9 @@ const CanvasEditorInner = () => {
           defaultEdgeOptions={defaultEdgeOptions}
           fitView
           panOnDrag={[1, 2]}
+          snapToGrid={snapToGrid}
+          snapGrid={[32, 32]}
+          selectionOnDrag={false}
           className="neo-flow"
           onMoveEnd={updateZoomDisplay}
         >
@@ -250,7 +254,13 @@ const CanvasEditorInner = () => {
         </div>
         <div className="canvas-toolbar-meta">
           <span className="meta-pill">Auto-sync</span>
-          <span className="meta-pill muted">Snap grid</span>
+          <button
+            type="button"
+            className={`meta-pill toggle ${snapToGrid ? 'active' : ''}`}
+            onClick={() => setSnapToGrid((prev) => !prev)}
+          >
+            {snapToGrid ? 'Snap grid: On' : 'Snap grid: Off'}
+          </button>
         </div>
       </div>
     </div>
