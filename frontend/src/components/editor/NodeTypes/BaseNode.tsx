@@ -26,7 +26,7 @@ export interface ScreepsNodeData extends Record<string, unknown> {
   editing?: boolean;
 }
 
-const safeJsonValue = (value: unknown) => {
+export const safeJsonValue = (value: unknown) => {
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);
@@ -39,14 +39,14 @@ const safeJsonValue = (value: unknown) => {
   return JSON.stringify(value ?? "", null, 2);
 };
 
-type FilterConfig = {
+export type FilterConfig = {
   id: string;
   field?: string;
   op?: string;
   value?: unknown;
 };
 
-const FILTER_OPERATORS: Array<{ label: string; value: string }> = [
+export const FILTER_OPERATORS: Array<{ label: string; value: string }> = [
   { label: "===", value: "===" },
   { label: "!==", value: "!==" },
   { label: ">", value: ">" },
@@ -56,7 +56,7 @@ const FILTER_OPERATORS: Array<{ label: string; value: string }> = [
   { label: "includes", value: "includes" }
 ];
 
-const normalizeFilters = (filters: unknown): FilterConfig[] => {
+export const normalizeFilters = (filters: unknown): FilterConfig[] => {
   if (!Array.isArray(filters)) {
     return [];
   }

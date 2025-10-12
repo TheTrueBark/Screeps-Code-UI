@@ -311,10 +311,10 @@ export const NodeRenderer = ({
       style={{ "--node-accent": resolvedMeta?.color ?? palette.accent, "--node-port": palette.port } as CSSProperties}
     >
       {definition.hasFlowInput !== false ? (
-        <Handle id="flow:in" type="target" position={Position.Top} className="node-flow-port" />
+        <Handle id="flow:in" type="target" position={Position.Left} className="node-flow-port" />
       ) : null}
       {definition.hasFlowOutput !== false ? (
-        <Handle id="flow:out" type="source" position={Position.Bottom} className="node-flow-port" />
+        <Handle id="flow:out" type="source" position={Position.Right} className="node-flow-port" />
       ) : null}
       <div className="oled-node-surface">
         <header ref={headerRef} className="oled-node-header" style={headerStyle}>

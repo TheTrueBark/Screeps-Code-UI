@@ -38,6 +38,7 @@ import { NODE_DEFINITION_MAP, NODE_TYPE_MAP } from './nodeRegistry';
 import { BottomMenu } from './BottomMenu';
 import { NodeHelpPopover } from './NodeHelpPopover';
 import { NodeToolbar } from './NodeToolbar';
+import { NodeEditPanel } from './NodeEditPanel';
 
 const nodeTypes = NODE_TYPE_MAP;
 const GRID_SIZE = 24;
@@ -57,6 +58,16 @@ const snapPosition = (position: { x: number; y: number }) => ({
 const quantizeZoom = (value: number) => Math.round(value / ZOOM_STEP) * ZOOM_STEP;
 
 const clampZoom = (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+const modulo = (value: number, divisor: number) => ((value % divisor) + divisor) % divisor;
+
+const computeGridOffset = (viewport: Viewport) => {
+  const zoom = viewport.zoom ?? 1;
+  const gap = Math.max(4, GRID_SIZE * zoom);
+  return {
+    x: modulo(-(viewport.x ?? 0), gap),
+    y: modulo(-(viewport.y ?? 0), gap)
+  };
+};
 
 const stableStringify = (value: unknown): string =>
   JSON.stringify(value, (_key, val) => {
@@ -142,8 +153,6 @@ const CanvasEditorInner = () => {
   const {
     screenToFlowPosition,
     toObject,
-    zoomIn,
-    zoomOut,
     fitView,
     getZoom,
     setViewport,
@@ -160,6 +169,7 @@ const CanvasEditorInner = () => {
   const [helpOpen, setHelpOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [gridOffset, setGridOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     if (!activeFileId) {
@@ -176,6 +186,14 @@ const CanvasEditorInner = () => {
   }, []);
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
+
+  const updateGridOffset = useCallback(
+    (viewport?: Viewport) => {
+      const next = viewport ?? getViewport();
+      setGridOffset(computeGridOffset(next));
+    },
+    [getViewport]
+  );
 
   const scheduleGraphSave = useCallback(
     (immediate = false) => {
@@ -328,39 +346,37 @@ const CanvasEditorInner = () => {
 
   const applyZoomStep = useCallback(
     (direction: 1 | -1) => {
-      if (direction > 0) {
-        zoomIn({ duration: 0 });
-      } else {
-        zoomOut({ duration: 0 });
-      }
-
+      const viewport = getViewport();
+      const currentZoom = viewport.zoom ?? 1;
+      const nextZoom = clampZoom(currentZoom + direction * ZOOM_STEP);
+      const quantized = syncZoom(nextZoom);
+      const updatedViewport = { ...viewport, zoom: quantized };
+      setViewport(updatedViewport, { duration: 0 });
+      setGridOffset(computeGridOffset(updatedViewport));
       requestAnimationFrame(() => {
-        const viewport = getViewport();
-        const quantized = syncZoom(viewport.zoom ?? 1);
-        if (Math.abs((viewport.zoom ?? 1) - quantized) > 0.0001) {
-          setViewport({ ...viewport, zoom: quantized }, { duration: 0 });
-        }
         scheduleGraphSave();
       });
     },
-    [getViewport, scheduleGraphSave, setViewport, syncZoom, zoomIn, zoomOut]
+    [getViewport, scheduleGraphSave, setGridOffset, setViewport, syncZoom]
   );
 
   const handleZoomReset = useCallback(() => {
     setViewport({ ...DEFAULT_VIEWPORT }, { duration: 0 });
+    setGridOffset(computeGridOffset({ ...DEFAULT_VIEWPORT } as Viewport));
     requestAnimationFrame(() => {
       refreshZoom();
       scheduleGraphSave();
     });
-  }, [refreshZoom, scheduleGraphSave, setViewport]);
+  }, [refreshZoom, scheduleGraphSave, setGridOffset, setViewport]);
 
   const handleZoomFit = useCallback(() => {
     fitView({ padding: 0.12 });
     requestAnimationFrame(() => {
       refreshZoom();
+      updateGridOffset();
       scheduleGraphSave();
     });
-  }, [fitView, refreshZoom, scheduleGraphSave]);
+  }, [fitView, refreshZoom, scheduleGraphSave, updateGridOffset]);
 
   const handleToggleEdit = useCallback(() => {
     if (!selectedNodeId) {
@@ -369,10 +385,6 @@ const CanvasEditorInner = () => {
 
     setNodes((current) =>
       current.map((node) => {
-        if (node.id !== selectedNodeId) {
-          return node;
-        }
-
         const data = (node.data as ScreepsNodeData) ?? {
           kind: '',
           label: '',
@@ -380,11 +392,25 @@ const CanvasEditorInner = () => {
           config: {}
         };
 
+        if (node.id === selectedNodeId) {
+          return {
+            ...node,
+            data: {
+              ...data,
+              editing: !data.editing
+            }
+          };
+        }
+
+        if (!data.editing) {
+          return node;
+        }
+
         return {
           ...node,
           data: {
             ...data,
-            editing: !data.editing
+            editing: false
           }
         };
       })
@@ -475,10 +501,36 @@ const CanvasEditorInner = () => {
 
   const handleSelectionChange = useCallback(
     (params: { nodes: Node<ScreepsNodeData>[] }) => {
-      const first = params?.nodes?.[0];
+      const first = params?.nodes?.[0] ?? null;
       setSelectedNodeId(first ? first.id : null);
+      setNodes((current) =>
+        current.map((node) => {
+          const data = (node.data as ScreepsNodeData) ?? {
+            kind: '',
+            label: '',
+            family: 'flow',
+            config: {}
+          };
+
+          if (first && node.id === first.id) {
+            return node;
+          }
+
+          if (!data.editing) {
+            return node;
+          }
+
+          return {
+            ...node,
+            data: {
+              ...data,
+              editing: false
+            }
+          };
+        })
+      );
     },
-    []
+    [setNodes]
   );
 
   const deleteNodeById = useCallback(
@@ -531,9 +583,19 @@ const CanvasEditorInner = () => {
   }, [updateToolbarAnchor]);
 
   useOnViewportChange({
-    onChange: () => updateToolbarAnchor(),
-    onEnd: () => updateToolbarAnchor()
+    onChange: (viewport: Viewport) => {
+      updateToolbarAnchor();
+      updateGridOffset(viewport);
+    },
+    onEnd: (viewport: Viewport) => {
+      updateToolbarAnchor();
+      updateGridOffset(viewport);
+    }
   });
+
+  useEffect(() => {
+    updateGridOffset();
+  }, [updateGridOffset]);
 
   useEffect(() => () => {
     if (localSaveTimer.current) {
@@ -691,11 +753,13 @@ const CanvasEditorInner = () => {
         event.preventDefault();
         event.stopPropagation();
         const viewport = getViewport();
-        setViewport({
+        const updated = {
           x: viewport.x - delta * 0.6,
           y: viewport.y,
           zoom: viewport.zoom
-        });
+        };
+        setViewport(updated);
+        setGridOffset(computeGridOffset(updated));
         scheduleGraphSave();
         return;
       }
@@ -704,11 +768,13 @@ const CanvasEditorInner = () => {
         event.preventDefault();
         event.stopPropagation();
         const viewport = getViewport();
-        setViewport({
+        const updated = {
           x: viewport.x,
           y: viewport.y - delta * 0.7,
           zoom: viewport.zoom
-        });
+        };
+        setViewport(updated);
+        setGridOffset(computeGridOffset(updated));
         scheduleGraphSave();
         return;
       }
@@ -718,7 +784,15 @@ const CanvasEditorInner = () => {
 
       applyZoomStep(delta < 0 ? 1 : -1);
     },
-    [activeFileId, applyZoomStep, getViewport, normaliseWheelDelta, scheduleGraphSave, setViewport]
+    [
+      activeFileId,
+      applyZoomStep,
+      getViewport,
+      normaliseWheelDelta,
+      scheduleGraphSave,
+      setGridOffset,
+      setViewport
+    ]
   );
 
   useEffect(() => {
@@ -961,7 +1035,13 @@ const CanvasEditorInner = () => {
           zoomOnScroll={false}
           panOnScroll={false}
           className="neo-flow"
-          style={{ '--grid-size': `${gridVisualGap}px` } as CSSProperties}
+          style={
+            {
+              '--grid-size': `${gridVisualGap}px`,
+              '--grid-offset-x': `${gridOffset.x}px`,
+              '--grid-offset-y': `${gridOffset.y}px`
+            } as CSSProperties
+          }
           onSelectionChange={handleSelectionChange as any}
           onMoveEnd={() => {
             refreshZoom();
@@ -1026,6 +1106,14 @@ const CanvasEditorInner = () => {
         title={selectedMeta?.title ?? ''}
         markdown={helpMarkdown}
         onClose={() => setHelpOpen(false)}
+      />
+      <NodeEditPanel
+        open={Boolean(selectedNodeId && selectedData?.editing)}
+        node={selectedNode}
+        definition={selectedDefinition}
+        meta={selectedMeta}
+        onClose={handleToggleEdit}
+        onConfigChange={scheduleGraphSave}
       />
       <BottomMenu
         activeCategory={activeCategory}
