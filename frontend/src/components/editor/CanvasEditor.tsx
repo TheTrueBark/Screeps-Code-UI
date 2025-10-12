@@ -14,7 +14,15 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type WheelEvent as ReactWheelEvent
+} from 'react';
 import type { GraphNodeData, GraphState } from '@shared/types';
 import { useFileStore } from '../../state/fileStore';
 import { useNodeStore } from '../../state/nodeStore';
@@ -30,13 +38,31 @@ const CanvasEditorInner = () => {
   const setGraphState = useNodeStore((state) => state.setGraphState);
   const graph = useNodeStore((state) => state.getGraphForFile(activeFileId));
   const registerGraphSerializer = useFileStore((state) => state.registerGraphSerializer);
-  const { screenToFlowPosition, toObject, zoomIn, zoomOut, fitView, getZoom } =
-    useReactFlow<Node<ScreepsNodeData>, Edge>();
+  const {
+    screenToFlowPosition,
+    toObject,
+    zoomIn,
+    zoomOut,
+    fitView,
+    getZoom,
+    setViewport,
+    getViewport
+  } = useReactFlow<Node<ScreepsNodeData>, Edge>();
   const [zoomDisplay, setZoomDisplay] = useState('100%');
   const [snapToGrid, setSnapToGrid] = useState(false);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreepsNodeData>>(graph.nodes as Node<ScreepsNodeData>[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
 
   useEffect(() => {
     registerGraphSerializer(() => {
@@ -179,9 +205,102 @@ const CanvasEditorInner = () => {
     }, 0);
   }, [getZoom]);
 
+  const normaliseWheelDelta = useCallback((event: ReactWheelEvent<HTMLDivElement>) => {
+    const nativeEvent = event.nativeEvent;
+    let delta = nativeEvent.deltaY;
+
+    if (nativeEvent.deltaMode === 1) {
+      delta *= 16;
+    } else if (nativeEvent.deltaMode === 2) {
+      delta *= 100;
+    }
+
+    if (delta === 0 && nativeEvent.deltaX !== 0) {
+      delta = nativeEvent.deltaX;
+    }
+
+    return delta;
+  }, []);
+
+  const handleWheel = useCallback(
+    (event: ReactWheelEvent<HTMLDivElement>) => {
+      if (!showFlow) {
+        return;
+      }
+
+      const delta = normaliseWheelDelta(event);
+
+      if (event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const viewport = getViewport();
+        setViewport({
+          x: viewport.x - delta * 0.6,
+          y: viewport.y,
+          zoom: viewport.zoom
+        });
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const viewport = getViewport();
+        setViewport({
+          x: viewport.x,
+          y: viewport.y - delta * 0.6,
+          zoom: viewport.zoom
+        });
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (delta < 0) {
+        zoomIn({ duration: 0 });
+      } else {
+        zoomOut({ duration: 0 });
+      }
+
+      updateZoomDisplay();
+    },
+    [getViewport, normaliseWheelDelta, setViewport, showFlow, updateZoomDisplay, zoomIn, zoomOut]
+  );
+
   useEffect(() => {
     updateZoomDisplay();
   }, [updateZoomDisplay]);
+
+  useEffect(() => {
+    if (!showFlow) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') {
+        return;
+      }
+
+      const selectedNodes = nodesRef.current.filter((node) => node.selected);
+      const selectedEdges = edgesRef.current.filter((edge) => edge.selected);
+
+      if (selectedNodes.length === 0 && selectedEdges.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+
+      setNodes((current) => current.filter((node) => !node.selected));
+      setEdges((current) => current.filter((edge) => !edge.selected));
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setEdges, setNodes, showFlow]);
 
   return (
     <div
@@ -189,6 +308,7 @@ const CanvasEditorInner = () => {
       className="canvas-surface"
       onDrop={onDrop}
       onDragOver={onDragOver}
+      onWheel={handleWheel}
     >
       {showFlow ? (
         <ReactFlow
@@ -204,6 +324,8 @@ const CanvasEditorInner = () => {
           snapToGrid={snapToGrid}
           snapGrid={[32, 32]}
           selectionOnDrag={false}
+          zoomOnScroll={false}
+          panOnScroll={false}
           className="neo-flow"
           onMoveEnd={updateZoomDisplay}
         >
