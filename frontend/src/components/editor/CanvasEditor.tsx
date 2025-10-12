@@ -14,7 +14,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useMemo, useRef, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import type { GraphNodeData, GraphState } from '@shared/types';
 import { useFileStore } from '../../state/fileStore';
 import { useNodeStore } from '../../state/nodeStore';
@@ -30,7 +30,9 @@ const CanvasEditorInner = () => {
   const setGraphState = useNodeStore((state) => state.setGraphState);
   const graph = useNodeStore((state) => state.getGraphForFile(activeFileId));
   const registerGraphSerializer = useFileStore((state) => state.registerGraphSerializer);
-  const { screenToFlowPosition, toObject } = useReactFlow<Node<ScreepsNodeData>, Edge>();
+  const { screenToFlowPosition, toObject, zoomIn, zoomOut, fitView, getZoom } =
+    useReactFlow<Node<ScreepsNodeData>, Edge>();
+  const [zoomDisplay, setZoomDisplay] = useState('100%');
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreepsNodeData>>(graph.nodes as Node<ScreepsNodeData>[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
@@ -158,17 +160,27 @@ const CanvasEditorInner = () => {
       animated: true,
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: '#00c8ff',
+        color: '#5a6169',
         width: 14,
         height: 14
       },
       style: {
-        stroke: '#00c8ff',
-        strokeWidth: 1
+        stroke: '#5a6169',
+        strokeWidth: 1.5
       }
     }),
     []
   );
+
+  const updateZoomDisplay = useCallback(() => {
+    setTimeout(() => {
+      setZoomDisplay(`${Math.round((getZoom() ?? 1) * 100)}%`);
+    }, 0);
+  }, [getZoom]);
+
+  useEffect(() => {
+    updateZoomDisplay();
+  }, [updateZoomDisplay]);
 
   return (
     <div
@@ -189,12 +201,58 @@ const CanvasEditorInner = () => {
           fitView
           panOnDrag={[1, 2]}
           className="neo-flow"
+          onMoveEnd={updateZoomDisplay}
         >
-          <Background gap={32} color="#0a0f12" lineWidth={1} />
+          <Background gap={32} color="#1c1d1f" lineWidth={1} />
         </ReactFlow>
       ) : (
         emptyState
       )}
+      <div className="canvas-toolbar">
+        <div className="canvas-toolbar-status">
+          <span className="status-indicator" aria-hidden />
+          <span className="status-label">Workflow</span>
+        </div>
+        <div className="canvas-toolbar-controls">
+          <button
+            type="button"
+            className="toolbar-button"
+            onClick={() => {
+              zoomOut();
+              updateZoomDisplay();
+            }}
+            aria-label="Zoom out"
+          >
+            −
+          </button>
+          <span className="toolbar-readout">{zoomDisplay}</span>
+          <button
+            type="button"
+            className="toolbar-button"
+            onClick={() => {
+              zoomIn();
+              updateZoomDisplay();
+            }}
+            aria-label="Zoom in"
+          >
+            ＋
+          </button>
+          <button
+            type="button"
+            className="toolbar-button"
+            onClick={() => {
+              fitView({ padding: 0.12 });
+              updateZoomDisplay();
+            }}
+          >
+            Fit
+          </button>
+        </div>
+        <div className="canvas-toolbar-meta">
+          <span className="meta-pill">Auto-sync</span>
+          <span className="meta-pill muted">Snap grid</span>
+        </div>
+      </div>
     </div>
   );
 };
