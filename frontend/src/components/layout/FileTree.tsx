@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent
+} from 'react';
 import {
   useFileStore,
   type FileNode,
@@ -29,6 +36,23 @@ export const FileTree = ({ onCollapse }: FileTreeProps) => {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+
+  const closeMenu = useCallback(() => setMenuFor(null), []);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest('.tree-menu')) {
+        closeMenu();
+      }
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [closeMenu]);
 
   const startRename = useCallback((node: TreeNode) => {
     setEditingId(node.id);
@@ -84,6 +108,13 @@ export const FileTree = ({ onCollapse }: FileTreeProps) => {
     setDraftName(folder?.name ?? 'New Folder');
   }, [createFolder]);
 
+  const formattedName = useCallback((name: string) => name.replace(/\.ts$/i, ''), []);
+
+  const toggleMenu = useCallback((event: MouseEvent<HTMLButtonElement>, id: string) => {
+    event.stopPropagation();
+    setMenuFor((prev) => (prev === id ? null : id));
+  }, []);
+
   const renderNode = useCallback(
     (node: TreeNode, depth: number): JSX.Element => {
       const isEditing = editingId === node.id;
@@ -113,34 +144,56 @@ export const FileTree = ({ onCollapse }: FileTreeProps) => {
                 />
               ) : (
                 <span className="tree-label" onDoubleClick={() => startRename(node)}>
-                  {node.name}
+                  {formattedName(node.name)}
                 </span>
               )}
-              <div className="tree-actions">
+              <div className="tree-menu">
                 <button
                   type="button"
-                  className="tree-action"
-                  title="New file"
-                  onClick={() => handleCreateFile(node.id)}
+                  className={cn('tree-menu-trigger', { active: menuFor === node.id })}
+                  aria-haspopup="true"
+                  aria-expanded={menuFor === node.id}
+                  onClick={(event) => toggleMenu(event, node.id)}
                 >
-                  ＋F
+                  ⋯
                 </button>
-                <button
-                  type="button"
-                  className="tree-action"
-                  title="New folder"
-                  onClick={() => handleCreateFolder(node.id)}
-                >
-                  ＋D
-                </button>
-                <button
-                  type="button"
-                  className="tree-action"
-                  title="Rename"
-                  onClick={() => startRename(node)}
-                >
-                  ✎
-                </button>
+                {menuFor === node.id && (
+                  <div className="tree-menu-popover" role="menu">
+                    <button
+                      type="button"
+                      className="tree-menu-item"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeMenu();
+                        handleCreateFile(node.id);
+                      }}
+                    >
+                      New file
+                    </button>
+                    <button
+                      type="button"
+                      className="tree-menu-item"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeMenu();
+                        handleCreateFolder(node.id);
+                      }}
+                    >
+                      New folder
+                    </button>
+                    <button
+                      type="button"
+                      className="tree-menu-item"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        closeMenu();
+                        startRename(node);
+                      }}
+                    >
+                      Rename
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             {!collapsed
@@ -179,45 +232,56 @@ export const FileTree = ({ onCollapse }: FileTreeProps) => {
             />
           ) : (
             <span className="tree-label" onDoubleClick={() => startRename(fileNode)}>
-              {fileNode.name}
+              {formattedName(fileNode.name)}
             </span>
           )}
           {!isEditing && (
-            <span
-              role="button"
-              tabIndex={0}
-              className="tree-action"
-              onClick={(event) => {
-                event.stopPropagation();
-                startRename(fileNode);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  startRename(fileNode);
-                }
-              }}
-              title="Rename"
-            >
-              ✎
-            </span>
+            <div className="tree-menu">
+              <button
+                type="button"
+                className={cn('tree-menu-trigger', { active: menuFor === fileNode.id })}
+                aria-haspopup="true"
+                aria-expanded={menuFor === fileNode.id}
+                onClick={(event) => toggleMenu(event, fileNode.id)}
+              >
+                ⋯
+              </button>
+              {menuFor === fileNode.id && (
+                <div className="tree-menu-popover" role="menu">
+                  <button
+                    type="button"
+                    className="tree-menu-item"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      closeMenu();
+                      startRename(fileNode);
+                    }}
+                  >
+                    Rename
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       );
     },
     [
       activeFileId,
+      closeMenu,
       collapsedFolders,
       commitRename,
       draftName,
       editingId,
+      formattedName,
       handleCreateFile,
       handleCreateFolder,
       handleFileOpen,
       handleInputKey,
+      menuFor,
       startRename,
-      toggleFolder
+      toggleFolder,
+      toggleMenu
     ]
   );
 
@@ -230,18 +294,44 @@ export const FileTree = ({ onCollapse }: FileTreeProps) => {
           <p className="file-tree-subheading">Workspace</p>
           <h2 className="file-tree-title">Process Scripts</h2>
         </div>
-        <div className="file-tree-controls">
-          <button type="button" className="tree-action" onClick={() => handleCreateFile(null)} title="Create file">
-            ＋F
-          </button>
-          <button
-            type="button"
-            className="tree-action"
-            onClick={() => handleCreateFolder(null)}
-            title="Create folder"
-          >
-            ＋D
-          </button>
+        <div className="file-tree-actions">
+          <div className="tree-menu">
+            <button
+              type="button"
+              className={cn('tree-menu-trigger', { active: menuFor === 'root-menu' })}
+              aria-haspopup="true"
+              aria-expanded={menuFor === 'root-menu'}
+              onClick={(event) => toggleMenu(event, 'root-menu')}
+            >
+              ⋯
+            </button>
+            {menuFor === 'root-menu' && (
+              <div className="tree-menu-popover" role="menu">
+                <button
+                  type="button"
+                  className="tree-menu-item"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    closeMenu();
+                    handleCreateFile(null);
+                  }}
+                >
+                  New file
+                </button>
+                <button
+                  type="button"
+                  className="tree-menu-item"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    closeMenu();
+                    handleCreateFolder(null);
+                  }}
+                >
+                  New folder
+                </button>
+              </div>
+            )}
+          </div>
           <button type="button" className="tree-collapse" onClick={onCollapse} title="Collapse sidebar">
             ◂
           </button>

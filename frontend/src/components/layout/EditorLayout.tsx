@@ -63,7 +63,6 @@ export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
         <div className="workspace">
           <div className="canvas-wrapper">
             <CanvasEditor />
-            <div className="canvas-vignette" aria-hidden />
           </div>
           <OutputPanel
             open={outputOpen}
