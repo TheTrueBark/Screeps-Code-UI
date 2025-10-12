@@ -1,5 +1,6 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { useReactFlow } from '@xyflow/react';
+import clsx from 'classnames';
 import type { CSSProperties, ReactNode } from 'react';
 import type {
   ConfigField,
@@ -154,6 +155,9 @@ const renderField = (
 
 const slotHandleId = (slot: SlotDefinition) => `slot:${slot.name}`;
 
+const PORT_BASE_OFFSET = 104;
+const PORT_ROW_SPACING = 36;
+
 type NodeShellProps = {
   definition: Omit<NodeDefinition, 'Component'>;
   nodeId: string;
@@ -179,6 +183,9 @@ export const NodeShell = ({
 }: NodeShellProps) => {
   const { setNodes } = useReactFlow<Node<ScreepsNodeData>>();
   const palette = familyPalette[data.family] ?? familyPalette.creep;
+  const hasDataInputs = Boolean(dataInputs?.length);
+  const hasDataOutputs = Boolean(dataOutputs?.length);
+  const hasSlotOutputs = Boolean(slots?.length);
 
   const setConfig = (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => {
     setNodes((nodes) =>
@@ -221,46 +228,77 @@ export const NodeShell = ({
       {hasFlowOutput ? (
         <Handle id="flow:out" type="source" position={Position.Bottom} className="port-dot flow" />
       ) : null}
+      {hasDataInputs ? (
+        <div className="node-port-heading left" style={{ top: PORT_BASE_OFFSET - PORT_ROW_SPACING }}>
+          Inputs
+        </div>
+      ) : null}
       <div className="node-ports node-ports-left">
-        {dataInputs?.map((input, index) => (
-          <div key={input.handleId} className="node-port left" style={{ top: 92 + index * 28 }}>
-            <Handle
-              id={input.handleId}
-              type="target"
-              position={Position.Left}
-              className="port-dot"
-            />
-            <span className="node-port-label">{input.label}</span>
-          </div>
-        ))}
+        {dataInputs?.map((input, index) => {
+          const top = PORT_BASE_OFFSET + index * PORT_ROW_SPACING;
+          return (
+            <div key={input.handleId} className="node-port left" style={{ top }}>
+              <Handle
+                id={input.handleId}
+                type="target"
+                position={Position.Left}
+                className="port-dot"
+              />
+              <span
+                className={clsx('node-port-label', 'input', input.optional && 'optional')}
+                title={input.optional ? `${input.label} (optional)` : input.label}
+              >
+                <span
+                  className={clsx('node-port-icon', 'input', input.optional && 'optional')}
+                  aria-hidden="true"
+                />
+                <span className="node-port-text">{input.label}</span>
+              </span>
+            </div>
+          );
+        })}
       </div>
+      {hasSlotOutputs || hasDataOutputs ? (
+        <div className="node-port-heading right" style={{ top: PORT_BASE_OFFSET - PORT_ROW_SPACING }}>
+          Outputs
+        </div>
+      ) : null}
       <div className="node-ports node-ports-right">
-        {slots?.map((slot, index) => (
-          <div key={slot.name} className="node-port right" style={{ top: 92 + index * 28 }}>
-            <span className="node-port-label">{slot.label}</span>
-            <Handle
-              id={slotHandleId(slot)}
-              type="source"
-              position={Position.Right}
-              className="port-dot"
-            />
-          </div>
-        ))}
-        {dataOutputs?.map((output, index) => (
-          <div
-            key={output.handleId}
-            className="node-port right"
-            style={{ top: 92 + ((slots?.length ?? 0) + index) * 28 }}
-          >
-            <span className="node-port-label">{output.label}</span>
-            <Handle
-              id={output.handleId}
-              type="source"
-              position={Position.Right}
-              className="port-dot"
-            />
-          </div>
-        ))}
+        {slots?.map((slot, index) => {
+          const top = PORT_BASE_OFFSET + index * PORT_ROW_SPACING;
+          return (
+            <div key={slot.name} className="node-port right" style={{ top }}>
+              <span className="node-port-label output slot" title={slot.label}>
+                <span className="node-port-text">{slot.label}</span>
+                <span className="node-port-icon output slot" aria-hidden="true" />
+              </span>
+              <Handle
+                id={slotHandleId(slot)}
+                type="source"
+                position={Position.Right}
+                className="port-dot"
+              />
+            </div>
+          );
+        })}
+        {dataOutputs?.map((output, index) => {
+          const slotCount = slots?.length ?? 0;
+          const top = PORT_BASE_OFFSET + (slotCount + index) * PORT_ROW_SPACING;
+          return (
+            <div key={output.handleId} className="node-port right" style={{ top }}>
+              <span className="node-port-label output data" title={output.label}>
+                <span className="node-port-text">{output.label}</span>
+                <span className="node-port-icon output data" aria-hidden="true" />
+              </span>
+              <Handle
+                id={output.handleId}
+                type="source"
+                position={Position.Right}
+                className="port-dot"
+              />
+            </div>
+          );
+        })}
       </div>
       <div className="node-surface">
         <header className="node-header">
