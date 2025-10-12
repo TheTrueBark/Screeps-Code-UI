@@ -25,6 +25,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type DragEvent,
   type WheelEvent as ReactWheelEvent
 } from 'react';
@@ -159,6 +160,13 @@ const CanvasEditorInner = () => {
   const [helpOpen, setHelpOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeFileId) {
+      setActiveCategory(null);
+    }
+  }, [activeFileId]);
+  const gridVisualGap = useMemo(() => Math.max(4, GRID_SIZE * zoomValue), [zoomValue]);
 
   const syncZoom = useCallback((value: number) => {
     const quantized = clampZoom(quantizeZoom(value));
@@ -337,6 +345,22 @@ const CanvasEditorInner = () => {
     },
     [getViewport, scheduleGraphSave, setViewport, syncZoom, zoomIn, zoomOut]
   );
+
+  const handleZoomReset = useCallback(() => {
+    setViewport({ ...DEFAULT_VIEWPORT }, { duration: 0 });
+    requestAnimationFrame(() => {
+      refreshZoom();
+      scheduleGraphSave();
+    });
+  }, [refreshZoom, scheduleGraphSave, setViewport]);
+
+  const handleZoomFit = useCallback(() => {
+    fitView({ padding: 0.12 });
+    requestAnimationFrame(() => {
+      refreshZoom();
+      scheduleGraphSave();
+    });
+  }, [fitView, refreshZoom, scheduleGraphSave]);
 
   const handleToggleEdit = useCallback(() => {
     if (!selectedNodeId) {
@@ -937,6 +961,7 @@ const CanvasEditorInner = () => {
           zoomOnScroll={false}
           panOnScroll={false}
           className="neo-flow"
+          style={{ '--grid-size': `${gridVisualGap}px` } as CSSProperties}
           onSelectionChange={handleSelectionChange as any}
           onMoveEnd={() => {
             refreshZoom();
@@ -975,7 +1000,7 @@ const CanvasEditorInner = () => {
             pointerRef.current = { x: event.clientX, y: event.clientY };
           }}
         >
-          <Background gap={GRID_SIZE} color="#1c1d1f" lineWidth={1} variant={BackgroundVariant.Lines} />
+          <Background gap={gridVisualGap} color="#1c1d1f" lineWidth={1} variant={BackgroundVariant.Lines} />
         </ReactFlow>
       ) : (
         emptyState
@@ -1007,47 +1032,12 @@ const CanvasEditorInner = () => {
         onToggle={handleCategoryToggle}
         onSpawn={handleSpawnNode}
         disabled={!activeFileId}
+        zoomDisplay={zoomDisplay}
+        onZoomIn={() => applyZoomStep(1)}
+        onZoomOut={() => applyZoomStep(-1)}
+        onZoomReset={handleZoomReset}
+        onZoomFit={handleZoomFit}
       />
-      <div className="canvas-toolbar">
-        <div className="canvas-toolbar-status">
-          <span className="status-indicator" aria-hidden />
-          <span className="status-label">Workflow</span>
-        </div>
-        <div className="canvas-toolbar-controls">
-          <button
-            type="button"
-            className="toolbar-button"
-            onClick={() => applyZoomStep(-1)}
-            aria-label="Zoom out"
-          >
-            −
-          </button>
-          <span className="toolbar-readout">{zoomDisplay}</span>
-          <button
-            type="button"
-            className="toolbar-button"
-            onClick={() => applyZoomStep(1)}
-            aria-label="Zoom in"
-          >
-            ＋
-          </button>
-          <button
-            type="button"
-            className="toolbar-button"
-            onClick={() => {
-              fitView({ padding: 0.12 });
-              refreshZoom();
-              scheduleGraphSave();
-            }}
-          >
-            Fit
-          </button>
-        </div>
-        <div className="canvas-toolbar-meta">
-          <span className="meta-pill">Auto-sync</span>
-          <span className="meta-pill muted">Snap grid: 24px</span>
-        </div>
-      </div>
     </div>
   );
 };

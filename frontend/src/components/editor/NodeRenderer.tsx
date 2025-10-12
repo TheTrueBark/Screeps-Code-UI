@@ -324,7 +324,6 @@ export const NodeRenderer = ({
             </span>
             <div className="oled-node-text">
               <span className="oled-node-name">{resolvedMeta?.title ?? definition.title}</span>
-              <span className="oled-node-sub">{resolvedMeta?.category ?? definition.subtitle ?? definition.kind}</span>
             </div>
           </div>
           <div className="oled-node-meta">
