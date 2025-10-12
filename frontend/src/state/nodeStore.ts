@@ -4,6 +4,7 @@ import type { Edge, Node } from '@xyflow/react';
 import type { GraphState, GraphNodeData } from '@shared/types';
 import type { ScreepsNodeData } from '../components/editor/NodeTypes/BaseNode';
 import { NODE_DEFINITION_MAP } from '../components/editor/nodeRegistry';
+import { useFileStore } from './fileStore';
 
 interface FlowGraphState {
   nodes: Node<ScreepsNodeData>[];
@@ -22,6 +23,38 @@ const emptyGraph: FlowGraphState = {
   nodes: [],
   edges: []
 };
+
+const flowGraphToGraphState = ({ nodes, edges }: FlowGraphState): GraphState => ({
+  nodes: nodes.map((node) => ({
+    id: node.id,
+    type: node.type as string,
+    position: node.position,
+    data: node.data as GraphNodeData
+  })),
+  edges: edges.map((edge) => ({
+    id: edge.id ?? nanoid(),
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle ?? null,
+    targetHandle: edge.targetHandle ?? null
+  }))
+});
+
+const graphStateToFlowGraph = (graph: GraphState): FlowGraphState => ({
+  nodes: graph.nodes.map((node) => ({
+    id: node.id,
+    type: node.type,
+    position: node.position,
+    data: node.data as ScreepsNodeData
+  })),
+  edges: graph.edges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle ?? undefined,
+    targetHandle: edge.targetHandle ?? undefined
+  }))
+});
 
 const cloneConfig = (config: Record<string, unknown> | undefined) =>
   JSON.parse(JSON.stringify(config ?? {}));
@@ -125,22 +158,38 @@ export const useNodeStore = create<NodeStoreState>((set, get) => ({
       return;
     }
 
+    const storedGraph = useFileStore.getState().getGraphState(fileId);
+    if (storedGraph) {
+      set({
+        graphs: {
+          ...graphs,
+          [fileId]: graphStateToFlowGraph(storedGraph)
+        }
+      });
+      return;
+    }
+
+    const initialGraph = initialGraphForFile(fileId);
     set({
       graphs: {
         ...graphs,
-        [fileId]: initialGraphForFile(fileId)
+        [fileId]: initialGraph
       }
     });
+
+    useFileStore.getState().setFileGraphState(fileId, flowGraphToGraphState(initialGraph));
   },
   setGraphState: (fileId, nodes, edges) => {
     const { graphs } = get();
+    const nextGraph: FlowGraphState = {
+      nodes,
+      edges
+    };
+    useFileStore.getState().setFileGraphState(fileId, flowGraphToGraphState(nextGraph));
     set({
       graphs: {
         ...graphs,
-        [fileId]: {
-          nodes,
-          edges
-        }
+        [fileId]: nextGraph
       }
     });
   },
@@ -156,21 +205,7 @@ export const useNodeStore = create<NodeStoreState>((set, get) => ({
     const { graphs } = get();
     const graph = graphs[fileId] ?? emptyGraph;
 
-    return {
-      nodes: graph.nodes.map((node) => ({
-        id: node.id,
-        type: node.type as string,
-        position: node.position,
-        data: node.data as GraphNodeData
-      })),
-      edges: graph.edges.map((edge) => ({
-        id: edge.id ?? nanoid(),
-        source: edge.source,
-        target: edge.target,
-        sourceHandle: edge.sourceHandle ?? null,
-        targetHandle: edge.targetHandle ?? null
-      }))
-    } satisfies GraphState;
+    return flowGraphToGraphState(graph);
   }
 }));
 

@@ -1,7 +1,6 @@
 import {
   Background,
-  Controls,
-  MiniMap,
+  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   addEdge,
@@ -10,11 +9,13 @@ import {
   useReactFlow,
   type Connection,
   type Edge,
-  type Node
+  type Node,
+  type ReactFlowJsonObject
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, type DragEvent } from 'react';
+import type { GraphNodeData, GraphState } from '@shared/types';
 import { useFileStore } from '../../state/fileStore';
 import { useNodeStore } from '../../state/nodeStore';
 import type { ScreepsNodeData } from './NodeTypes/BaseNode';
@@ -28,10 +29,40 @@ const CanvasEditorInner = () => {
   const initializeGraph = useNodeStore((state) => state.initializeGraphForFile);
   const setGraphState = useNodeStore((state) => state.setGraphState);
   const graph = useNodeStore((state) => state.getGraphForFile(activeFileId));
-  const { screenToFlowPosition } = useReactFlow();
+  const registerGraphSerializer = useFileStore((state) => state.registerGraphSerializer);
+  const { screenToFlowPosition, toObject } = useReactFlow<Node<ScreepsNodeData>, Edge>();
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<ScreepsNodeData>>(graph.nodes as Node<ScreepsNodeData>[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
+
+  useEffect(() => {
+    registerGraphSerializer(() => {
+      const snapshot = toObject() as ReactFlowJsonObject<Node<ScreepsNodeData>, Edge> | null;
+      if (!snapshot) {
+        return null;
+      }
+
+      return {
+        nodes: snapshot.nodes.map((node) => ({
+          id: node.id,
+          type: node.type ?? '',
+          position: node.position,
+          data: (node.data ?? {}) as GraphNodeData
+        })),
+        edges: snapshot.edges.map((edge) => ({
+          id: edge.id ?? nanoid(),
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle ?? null,
+          targetHandle: edge.targetHandle ?? null
+        }))
+      } satisfies GraphState;
+    });
+
+    return () => {
+      registerGraphSerializer(null);
+    };
+  }, [registerGraphSerializer, toObject]);
 
   useEffect(() => {
     if (!activeFileId) {
@@ -121,6 +152,24 @@ const CanvasEditorInner = () => {
 
   const showFlow = Boolean(activeFileId);
 
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: 'smoothstep',
+      animated: true,
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: '#00c8ff',
+        width: 14,
+        height: 14
+      },
+      style: {
+        stroke: '#00c8ff',
+        strokeWidth: 1
+      }
+    }),
+    []
+  );
+
   return (
     <div
       ref={wrapperRef}
@@ -136,12 +185,12 @@ const CanvasEditorInner = () => {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
           fitView
-          className="text-slate-100"
+          panOnDrag={[1, 2]}
+          className="neo-flow"
         >
-          <Background gap={20} color="#2a2a2a" />
-          <MiniMap pannable zoomable className="minimap" />
-          <Controls className="controls" />
+          <Background gap={32} color="#0a0f12" lineWidth={1} />
         </ReactFlow>
       ) : (
         emptyState

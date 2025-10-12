@@ -1,10 +1,12 @@
 import { nanoid } from 'nanoid';
 import { create } from 'zustand';
+import type { GraphState } from '@shared/types';
 import {
   addNodeToTree,
   createUniqueName,
   findNodeById,
   renameNodeInTree,
+  updateNodeInTree,
   type FileNode,
   type FolderNode,
   type TreeNode
@@ -20,6 +22,7 @@ interface FileStoreState {
   openTabs: OpenTab[];
   activeFileId: string | null;
   collapsedFolders: Record<string, boolean>;
+  graphSerializer: (() => GraphState | null) | null;
   openFile: (fileId: string) => void;
   closeTab: (fileId: string) => void;
   setActiveFile: (fileId: string) => void;
@@ -27,6 +30,10 @@ interface FileStoreState {
   createFolder: (parentId: string | null) => string;
   renameItem: (id: string, name: string) => void;
   toggleFolder: (folderId: string) => void;
+  registerGraphSerializer: (serializer: (() => GraphState | null) | null) => void;
+  persistActiveGraph: () => void;
+  setFileGraphState: (fileId: string, graph: GraphState) => void;
+  getGraphState: (fileId: string) => GraphState | undefined;
   getFileById: (id: string) => FileNode | undefined;
 }
 
@@ -67,8 +74,10 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   openTabs: [],
   activeFileId: null,
   collapsedFolders: {},
+  graphSerializer: null,
   openFile: (fileId) => {
-    const { tree, openTabs } = get();
+    const { tree, openTabs, persistActiveGraph } = get();
+    persistActiveGraph();
     const node = findNodeById(tree, fileId);
     if (!node || node.type !== 'file') {
       return;
@@ -82,7 +91,10 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
     set({ openTabs: nextTabs, activeFileId: fileId });
   },
   closeTab: (fileId) => {
-    const { openTabs, activeFileId } = get();
+    const { openTabs, activeFileId, persistActiveGraph } = get();
+    if (activeFileId === fileId) {
+      persistActiveGraph();
+    }
     const nextTabs = openTabs.filter((tab) => tab.id !== fileId);
     const isActive = activeFileId === fileId;
 
@@ -94,7 +106,11 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
     });
   },
   setActiveFile: (fileId) => {
-    const { openTabs } = get();
+    const { openTabs, activeFileId, persistActiveGraph } = get();
+    if (activeFileId === fileId) {
+      return;
+    }
+    persistActiveGraph();
     if (!openTabs.some((tab) => tab.id === fileId)) {
       return;
     }
@@ -161,6 +177,46 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
         [folderId]: !collapsedFolders[folderId]
       }
     });
+  },
+  registerGraphSerializer: (serializer) => {
+    set({ graphSerializer: serializer });
+  },
+  persistActiveGraph: () => {
+    const { activeFileId, graphSerializer, setFileGraphState } = get();
+    if (!activeFileId || !graphSerializer) {
+      return;
+    }
+
+    const snapshot = graphSerializer();
+    if (!snapshot) {
+      return;
+    }
+
+    setFileGraphState(activeFileId, snapshot);
+  },
+  setFileGraphState: (fileId, graph) => {
+    const { tree } = get();
+    const updatedTree = updateNodeInTree(tree, fileId, (node) => {
+      if (node.type !== 'file') {
+        return node;
+      }
+
+      return {
+        ...node,
+        graphState: graph
+      } satisfies FileNode;
+    });
+
+    set({ tree: updatedTree });
+  },
+  getGraphState: (fileId) => {
+    const { tree } = get();
+    const node = findNodeById(tree, fileId);
+    if (node && node.type === 'file') {
+      return node.graphState;
+    }
+
+    return undefined;
   },
   getFileById: (id) => {
     const { tree } = get();
