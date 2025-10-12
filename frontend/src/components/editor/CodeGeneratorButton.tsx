@@ -1,7 +1,7 @@
-import { useCallback } from 'react';
-import { useFileStore } from '../../state/fileStore';
-import { compileGraph } from '../../compiler';
-import { cn } from '../../utils/classNames';
+import { useCallback } from "react";
+import { useFileStore } from "../../state/fileStore";
+import { compileGraph } from "../../compiler";
+import { cn } from "../../utils/classNames";
 
 type CodeGeneratorButtonProps = {
   onGenerated?: (output: string) => void;
@@ -11,7 +11,10 @@ type CodeGeneratorButtonProps = {
 /**
  * Button that serialises the active ReactFlow graph and emits a mock payload.
  */
-export const CodeGeneratorButton = ({ onGenerated, className }: CodeGeneratorButtonProps) => {
+export const CodeGeneratorButton = ({
+  onGenerated,
+  className,
+}: CodeGeneratorButtonProps) => {
   const activeFileId = useFileStore((state) => state.activeFileId);
   const getGraphState = useFileStore((state) => state.getGraphState);
 
@@ -22,7 +25,9 @@ export const CodeGeneratorButton = ({ onGenerated, className }: CodeGeneratorBut
 
     const graph = getGraphState(activeFileId);
     if (!graph) {
-      onGenerated?.('// Nothing to compile yet. Draw a graph for the active file.');
+      onGenerated?.(
+        "// Nothing to compile yet. Draw a graph for the active file.",
+      );
       return;
     }
 
@@ -32,7 +37,9 @@ export const CodeGeneratorButton = ({ onGenerated, className }: CodeGeneratorBut
       console.group(`Compile errors for ${activeFileId}`);
       result.errors.forEach((error) => console.error(error.message));
       console.groupEnd();
-      onGenerated?.('// Compilation failed. Resolve node errors to generate code.');
+      onGenerated?.(
+        "// Compilation failed. Resolve node errors to generate code.",
+      );
       return;
     }
 
@@ -51,7 +58,7 @@ export const CodeGeneratorButton = ({ onGenerated, className }: CodeGeneratorBut
   return (
     <button
       type="button"
-      className={cn('btn-generate', className, { disabled: !activeFileId })}
+      className={cn("btn-generate", className, { disabled: !activeFileId })}
       onClick={handleGenerate}
       disabled={!activeFileId}
       aria-label="Generate code for the active file"

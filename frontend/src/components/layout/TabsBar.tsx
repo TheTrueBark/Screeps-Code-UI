@@ -1,6 +1,6 @@
-import { useCallback, type KeyboardEvent, type MouseEvent } from 'react';
-import { useFileStore } from '../../state/fileStore';
-import { cn } from '../../utils/classNames';
+import { useCallback, type KeyboardEvent, type MouseEvent } from "react";
+import { useFileStore } from "../../state/fileStore";
+import { cn } from "../../utils/classNames";
 
 type TabsBarProps = {
   className?: string;
@@ -17,46 +17,51 @@ export const TabsBar = ({ className }: TabsBarProps) => {
   const saveStates = useFileStore((state) => state.saveStates);
 
   const activeStatus = activeFileId ? saveStates[activeFileId] : undefined;
-  const statusLabel = activeStatus?.status === 'saving'
-    ? 'Saving…'
-    : activeStatus?.status === 'saved'
-      ? 'Saved'
-      : '';
+  const statusLabel =
+    activeStatus?.status === "saving"
+      ? "Saving…"
+      : activeStatus?.status === "saved"
+        ? "Saved"
+        : "";
 
   const handleSelect = useCallback(
     (fileId: string) => () => {
       setActiveFile(fileId);
     },
-    [setActiveFile]
+    [setActiveFile],
   );
 
   const handleClose = useCallback(
-    (fileId: string) => (
-      event?: MouseEvent<HTMLSpanElement> | KeyboardEvent<HTMLSpanElement>
-    ) => {
-      event?.stopPropagation();
-      closeTab(fileId);
-    },
-    [closeTab]
+    (fileId: string) =>
+      (
+        event?: MouseEvent<HTMLSpanElement> | KeyboardEvent<HTMLSpanElement>,
+      ) => {
+        event?.stopPropagation();
+        closeTab(fileId);
+      },
+    [closeTab],
   );
 
   return (
-    <div className={cn('tabs-bar', className)}>
+    <div className={cn("tabs-bar", className)}>
       {openTabs.length === 0 ? (
         <div className="tab-placeholder">Open a file to begin.</div>
       ) : (
         openTabs.map((tab) => {
           const isActive = tab.id === activeFileId;
+          const displayName = tab.name.replace(/\.ts$/i, "");
           return (
             <button
               key={tab.id}
               type="button"
               onClick={handleSelect(tab.id)}
-              className={cn('tab-chip', { active: isActive })}
+              className={cn("tab-chip", { active: isActive })}
             >
               <span className="tab-chip-label">
-                {saveStates[tab.id]?.dirty ? <span className="tab-chip-dot">•</span> : null}
-                {tab.name}
+                {saveStates[tab.id]?.dirty ? (
+                  <span className="tab-chip-dot">•</span>
+                ) : null}
+                {displayName}
               </span>
               <span
                 role="button"
@@ -64,7 +69,7 @@ export const TabsBar = ({ className }: TabsBarProps) => {
                 className="tab-chip-close"
                 onClick={(event) => handleClose(tab.id)(event)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
+                  if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     handleClose(tab.id)(event);
                   }
@@ -78,7 +83,11 @@ export const TabsBar = ({ className }: TabsBarProps) => {
           );
         })
       )}
-      {statusLabel ? <div className="tab-status" aria-live="polite">{statusLabel}</div> : null}
+      {statusLabel ? (
+        <div className="tab-status" aria-live="polite">
+          {statusLabel}
+        </div>
+      ) : null}
     </div>
   );
 };

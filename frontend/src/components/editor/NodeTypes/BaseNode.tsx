@@ -53,7 +53,7 @@ export const FILTER_OPERATORS: Array<{ label: string; value: string }> = [
   { label: "<", value: "<" },
   { label: ">=", value: ">=" },
   { label: "<=", value: "<=" },
-  { label: "includes", value: "includes" }
+  { label: "includes", value: "includes" },
 ];
 
 export const normalizeFilters = (filters: unknown): FilterConfig[] => {
@@ -71,7 +71,7 @@ export const normalizeFilters = (filters: unknown): FilterConfig[] => {
       id: typeof value.id === "string" ? value.id : nanoid(6),
       field: typeof value.field === "string" ? value.field : "",
       op: typeof value.op === "string" ? value.op : "===",
-      value: value.value
+      value: value.value,
     };
   });
 };
@@ -145,7 +145,10 @@ export const NodeShell = ({
     }
 
     const missingId = raw.some(
-      (entry) => !entry || typeof entry !== "object" || typeof (entry as Record<string, unknown>).id !== "string",
+      (entry) =>
+        !entry ||
+        typeof entry !== "object" ||
+        typeof (entry as Record<string, unknown>).id !== "string",
     );
 
     if (!missingId) {
@@ -158,14 +161,19 @@ export const NodeShell = ({
     }));
   }, [data.config.filters, setConfig]);
 
-  const filters = useMemo(() => normalizeFilters(data.config.filters), [data.config.filters]);
+  const filters = useMemo(
+    () => normalizeFilters(data.config.filters),
+    [data.config.filters],
+  );
   const isEditing = Boolean(data.editing);
 
   const mutateFilters = useCallback(
     (updater: (current: FilterConfig[]) => FilterConfig[]) => {
       setConfig((prev) => ({
         ...prev,
-        filters: updater(normalizeFilters((prev as Record<string, unknown>).filters)),
+        filters: updater(
+          normalizeFilters((prev as Record<string, unknown>).filters),
+        ),
       }));
     },
     [setConfig],
@@ -188,7 +196,10 @@ export const NodeShell = ({
   );
 
   const handleAddFilter = useCallback(() => {
-    mutateFilters((current) => [...current, { id: nanoid(6), field: "", op: "===", value: "" }]);
+    mutateFilters((current) => [
+      ...current,
+      { id: nanoid(6), field: "", op: "===", value: "" },
+    ]);
   }, [mutateFilters]);
 
   const handleRemoveFilter = useCallback(
@@ -208,7 +219,11 @@ export const NodeShell = ({
             key: "filters:empty",
             label: "Filters",
             control: isEditing ? (
-              <button type="button" className="node-grid-add" onClick={handleAddFilter}>
+              <button
+                type="button"
+                className="node-grid-add"
+                onClick={handleAddFilter}
+              >
                 + Add Filter
               </button>
             ) : (
@@ -217,9 +232,10 @@ export const NodeShell = ({
           });
         } else {
           filters.forEach((filter, index) => {
-            const summary = `${filter.field ?? "candidate"} ${filter.op ?? "==="} ${String(
-              filter.value ?? "",
-            )}`.trim();
+            const summary =
+              `${filter.field ?? "candidate"} ${filter.op ?? "==="} ${String(
+                filter.value ?? "",
+              )}`.trim();
             rowsList.push({
               key: `filters:${filter.id}`,
               label: `Filter ${index + 1}`,
@@ -230,19 +246,26 @@ export const NodeShell = ({
                     className="node-grid-input sm"
                     placeholder="candidate.prop"
                     value={typeof filter.field === "string" ? filter.field : ""}
-                    onChange={(event) => handleFilterChange(filter.id, "field", event.target.value)}
+                    onChange={(event) =>
+                      handleFilterChange(filter.id, "field", event.target.value)
+                    }
                   />
                   <select
                     className="node-grid-select sm"
                     value={typeof filter.op === "string" ? filter.op : "==="}
-                    onChange={(event) => handleFilterChange(filter.id, "op", event.target.value)}
+                    onChange={(event) =>
+                      handleFilterChange(filter.id, "op", event.target.value)
+                    }
                   >
                     {FILTER_OPERATORS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
-                    {filter.op && !FILTER_OPERATORS.some((option) => option.value === filter.op) ? (
+                    {filter.op &&
+                    !FILTER_OPERATORS.some(
+                      (option) => option.value === filter.op,
+                    ) ? (
                       <option value={String(filter.op)}>{filter.op}</option>
                     ) : null}
                   </select>
@@ -250,8 +273,14 @@ export const NodeShell = ({
                     type="text"
                     className="node-grid-input sm"
                     placeholder="Value"
-                    value={typeof filter.value === "string" ? filter.value : String(filter.value ?? "")}
-                    onChange={(event) => handleFilterChange(filter.id, "value", event.target.value)}
+                    value={
+                      typeof filter.value === "string"
+                        ? filter.value
+                        : String(filter.value ?? "")
+                    }
+                    onChange={(event) =>
+                      handleFilterChange(filter.id, "value", event.target.value)
+                    }
                   />
                   <button
                     type="button"
@@ -275,7 +304,11 @@ export const NodeShell = ({
               key: "filters:add",
               label: "Filters",
               control: (
-                <button type="button" className="node-grid-add" onClick={handleAddFilter}>
+                <button
+                  type="button"
+                  className="node-grid-add"
+                  onClick={handleAddFilter}
+                >
                   + Add Filter
                 </button>
               ),
@@ -319,12 +352,18 @@ export const NodeShell = ({
             <input
               type="number"
               className="node-grid-input"
-              value={typeof value === "number" || typeof value === "string" ? value : ""}
+              value={
+                typeof value === "number" || typeof value === "string"
+                  ? value
+                  : ""
+              }
               min={field.min}
               max={field.max}
               step={field.step}
               onChange={(event) =>
-                updateField(event.target.value === "" ? null : Number(event.target.value))
+                updateField(
+                  event.target.value === "" ? null : Number(event.target.value),
+                )
               }
             />
           ),
@@ -397,7 +436,16 @@ export const NodeShell = ({
     });
 
     return rowsList;
-  }, [data.config, definition.configFields, filters, handleAddFilter, handleFilterChange, handleRemoveFilter, isEditing, setConfig]);
+  }, [
+    data.config,
+    definition.configFields,
+    filters,
+    handleAddFilter,
+    handleFilterChange,
+    handleRemoveFilter,
+    isEditing,
+    setConfig,
+  ]);
 
   const alerts = useMemo(() => {
     const items: ReactNode[] = [];
@@ -437,19 +485,30 @@ export const NodeShell = ({
       meta={meta}
     >
       {children}
-      {alerts.length > 0 ? <div className="oled-node-alerts">{alerts}</div> : null}
+      {alerts.length > 0 ? (
+        <div className="oled-node-alerts">{alerts}</div>
+      ) : null}
     </NodeRenderer>
   );
 };
 
-export const createNodeComponent = (definition: Omit<NodeDefinition, "Component">) => {
+export const createNodeComponent = (
+  definition: Omit<NodeDefinition, "Component">,
+) => {
   const Component = (props: NodeProps) => {
     const { id, data } = props;
     return (
       <NodeShell
         definition={definition}
         nodeId={id}
-        data={(data as ScreepsNodeData) ?? { config: {}, kind: "", label: "", family: "flow" }}
+        data={
+          (data as ScreepsNodeData) ?? {
+            config: {},
+            kind: "",
+            label: "",
+            family: "flow",
+          }
+        }
       />
     );
   };

@@ -1,6 +1,10 @@
-import { create } from 'zustand';
-import type { GraphState } from '@shared/types';
-import { findEntryById, listFileIds, type FileEntry } from '../utils/fileHelpers';
+import { create } from "zustand";
+import type { GraphState } from "@shared/types";
+import {
+  findEntryById,
+  listFileIds,
+  type FileEntry,
+} from "../utils/fileHelpers";
 
 export const GRAPH_STATE_VERSION = 1;
 const SAVE_DEBOUNCE_MS = 600;
@@ -8,45 +12,57 @@ const SAVE_DEBOUNCE_MS = 600;
 const defaultViewport = { x: 0, y: 0, zoom: 1 } as const;
 
 const storageIndexKey = (workspaceId: string) => `sv_ide:${workspaceId}:index`;
-const storageFileKey = (workspaceId: string, fileId: string) => `sv_ide:${workspaceId}:file:${fileId}`;
+const storageFileKey = (workspaceId: string, fileId: string) =>
+  `sv_ide:${workspaceId}:file:${fileId}`;
 
 const createEmptyGraphState = (): GraphState => ({
   version: GRAPH_STATE_VERSION,
   xyflow: {
     nodes: [],
     edges: [],
-    viewport: { ...defaultViewport }
+    viewport: { ...defaultViewport },
   },
-  updatedAt: Date.now()
+  updatedAt: Date.now(),
 });
 
-const normalizeGraphState = (graph: Partial<GraphState> | null | undefined): GraphState => {
+const normalizeGraphState = (
+  graph: Partial<GraphState> | null | undefined,
+): GraphState => {
   if (!graph) {
     return createEmptyGraphState();
   }
 
-  const nodes = Array.isArray(graph.xyflow?.nodes) ? graph.xyflow?.nodes ?? [] : [];
-  const edges = Array.isArray(graph.xyflow?.edges) ? graph.xyflow?.edges ?? [] : [];
+  const nodes = Array.isArray(graph.xyflow?.nodes)
+    ? (graph.xyflow?.nodes ?? [])
+    : [];
+  const edges = Array.isArray(graph.xyflow?.edges)
+    ? (graph.xyflow?.edges ?? [])
+    : [];
   const viewport = graph.xyflow?.viewport ?? defaultViewport;
 
   return {
-    version: typeof graph.version === 'number' ? graph.version : GRAPH_STATE_VERSION,
+    version:
+      typeof graph.version === "number" ? graph.version : GRAPH_STATE_VERSION,
     xyflow: {
       nodes,
       edges,
       viewport: {
-        x: typeof viewport?.x === 'number' ? viewport.x : defaultViewport.x,
-        y: typeof viewport?.y === 'number' ? viewport.y : defaultViewport.y,
-        zoom: typeof viewport?.zoom === 'number' ? viewport.zoom : defaultViewport.zoom
-      }
+        x: typeof viewport?.x === "number" ? viewport.x : defaultViewport.x,
+        y: typeof viewport?.y === "number" ? viewport.y : defaultViewport.y,
+        zoom:
+          typeof viewport?.zoom === "number"
+            ? viewport.zoom
+            : defaultViewport.zoom,
+      },
     },
-    updatedAt: typeof graph.updatedAt === 'number' ? graph.updatedAt : Date.now()
+    updatedAt:
+      typeof graph.updatedAt === "number" ? graph.updatedAt : Date.now(),
   } satisfies GraphState;
 };
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-type SaveStatus = 'idle' | 'saving' | 'saved';
+type SaveStatus = "idle" | "saving" | "saved";
 
 type FileSaveState = {
   status: SaveStatus;
@@ -77,17 +93,30 @@ interface FileStoreState {
   closeTab: (fileId: string) => void;
   setActiveFile: (fileId: string) => void;
   toggleFolder: (folderId: string) => void;
-  registerGraphSerializer: (serializer: (() => GraphState | null) | null) => void;
-  saveGraphForFile: (fileId: string, graph: GraphState, options?: { immediate?: boolean }) => void;
-  saveActiveGraph: (graph: GraphState, options?: { immediate?: boolean }) => void;
+  registerGraphSerializer: (
+    serializer: (() => GraphState | null) | null,
+  ) => void;
+  saveGraphForFile: (
+    fileId: string,
+    graph: GraphState,
+    options?: { immediate?: boolean },
+  ) => void;
+  saveActiveGraph: (
+    graph: GraphState,
+    options?: { immediate?: boolean },
+  ) => void;
   getGraphState: (fileId: string) => GraphState | null;
   flushPendingSaves: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebarCollapsed: () => void;
 }
 
-const persistIndex = (workspaceId: string, fileIds: string[], lastOpenedFileId: string | null) => {
-  if (typeof window === 'undefined') {
+const persistIndex = (
+  workspaceId: string,
+  fileIds: string[],
+  lastOpenedFileId: string | null,
+) => {
+  if (typeof window === "undefined") {
     return;
   }
 
@@ -95,28 +124,40 @@ const persistIndex = (workspaceId: string, fileIds: string[], lastOpenedFileId: 
     const payload = {
       version: 1,
       lastOpenedFileId,
-      files: fileIds
+      files: fileIds,
     };
-    window.localStorage.setItem(storageIndexKey(workspaceId), JSON.stringify(payload));
+    window.localStorage.setItem(
+      storageIndexKey(workspaceId),
+      JSON.stringify(payload),
+    );
   } catch (error) {
-    console.warn('Failed to persist workspace index', error);
+    console.warn("Failed to persist workspace index", error);
   }
 };
 
-const persistGraph = (workspaceId: string, fileId: string, graph: GraphState) => {
-  if (typeof window === 'undefined') {
+const persistGraph = (
+  workspaceId: string,
+  fileId: string,
+  graph: GraphState,
+) => {
+  if (typeof window === "undefined") {
     return;
   }
 
   try {
-    window.localStorage.setItem(storageFileKey(workspaceId, fileId), JSON.stringify(graph));
+    window.localStorage.setItem(
+      storageFileKey(workspaceId, fileId),
+      JSON.stringify(graph),
+    );
   } catch (error) {
     console.warn(`Failed to persist graph for ${fileId}`, error);
   }
 };
 
-const readIndex = (workspaceId: string): { lastOpenedFileId: string | null } | null => {
-  if (typeof window === 'undefined') {
+const readIndex = (
+  workspaceId: string,
+): { lastOpenedFileId: string | null } | null => {
+  if (typeof window === "undefined") {
     return null;
   }
 
@@ -128,16 +169,19 @@ const readIndex = (workspaceId: string): { lastOpenedFileId: string | null } | n
   try {
     const parsed = JSON.parse(raw) as { lastOpenedFileId?: string | null };
     return {
-      lastOpenedFileId: typeof parsed.lastOpenedFileId === 'string' ? parsed.lastOpenedFileId : null
+      lastOpenedFileId:
+        typeof parsed.lastOpenedFileId === "string"
+          ? parsed.lastOpenedFileId
+          : null,
     };
   } catch (error) {
-    console.warn('Failed to parse workspace index', error);
+    console.warn("Failed to parse workspace index", error);
     return null;
   }
 };
 
 const readGraph = (workspaceId: string, fileId: string): GraphState | null => {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     return null;
   }
 
@@ -156,7 +200,7 @@ const readGraph = (workspaceId: string, fileId: string): GraphState | null => {
 };
 
 export const useFileStore = create<FileStoreState>((set, get) => ({
-  workspaceId: '',
+  workspaceId: "",
   fileTree: [],
   openTabs: [],
   activeFileId: null,
@@ -172,14 +216,18 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
 
     fileIds.forEach((fileId) => {
       initialGraphs[fileId] = createEmptyGraphState();
-      initialSaveStates[fileId] = { status: 'saved', dirty: false, lastSavedAt: Date.now() };
+      initialSaveStates[fileId] = {
+        status: "saved",
+        dirty: false,
+        lastSavedAt: Date.now(),
+      };
     });
 
     set({
       workspaceId,
       fileTree: tree,
       graphs: initialGraphs,
-      saveStates: initialSaveStates
+      saveStates: initialSaveStates,
     });
 
     get().hydrateFromStorage();
@@ -200,23 +248,24 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
       const graph = stored ?? createEmptyGraphState();
       hydratedGraphs[fileId] = graph;
       hydratedSaves[fileId] = {
-        status: 'saved',
+        status: "saved",
         dirty: false,
-        lastSavedAt: graph.updatedAt
+        lastSavedAt: graph.updatedAt,
       };
     });
 
     const fallbackActive = fileIds[0] ?? null;
-    const activeFileId = index?.lastOpenedFileId && fileIds.includes(index.lastOpenedFileId)
-      ? index.lastOpenedFileId
-      : fallbackActive;
+    const activeFileId =
+      index?.lastOpenedFileId && fileIds.includes(index.lastOpenedFileId)
+        ? index.lastOpenedFileId
+        : fallbackActive;
 
     const openTabs = activeFileId
       ? [
           {
             id: activeFileId,
-            name: findEntryById(fileTree, activeFileId)?.name ?? activeFileId
-          }
+            name: findEntryById(fileTree, activeFileId)?.name ?? activeFileId,
+          },
         ]
       : [];
 
@@ -224,7 +273,7 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
       graphs: hydratedGraphs,
       saveStates: hydratedSaves,
       activeFileId,
-      openTabs
+      openTabs,
     });
   },
   serializeToStorage: () => {
@@ -250,22 +299,23 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
     set(({ graphs: current, saveStates }) => ({
       graphs: {
         ...current,
-        [fileId]: createEmptyGraphState()
+        [fileId]: createEmptyGraphState(),
       },
       saveStates: {
         ...saveStates,
-        [fileId]: { status: 'saved', dirty: false, lastSavedAt: Date.now() }
-      }
+        [fileId]: { status: "saved", dirty: false, lastSavedAt: Date.now() },
+      },
     }));
   },
   openFile: (fileId) => {
-    const { fileTree, openTabs, graphSerializer, activeFileId, workspaceId } = get();
+    const { fileTree, openTabs, graphSerializer, activeFileId, workspaceId } =
+      get();
     if (activeFileId === fileId) {
       return;
     }
 
     const entry = findEntryById(fileTree, fileId);
-    if (!entry || entry.kind !== 'file') {
+    if (!entry || entry.kind !== "file") {
       return;
     }
 
@@ -295,7 +345,8 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
 
     let nextActive = activeFileId;
     if (activeFileId === fileId) {
-      nextActive = nextTabs.length > 0 ? nextTabs[nextTabs.length - 1].id : null;
+      nextActive =
+        nextTabs.length > 0 ? nextTabs[nextTabs.length - 1].id : null;
     }
 
     set({ openTabs: nextTabs, activeFileId: nextActive });
@@ -306,7 +357,8 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
     }
   },
   setActiveFile: (fileId) => {
-    const { openTabs, activeFileId, graphSerializer, fileTree, workspaceId } = get();
+    const { openTabs, activeFileId, graphSerializer, fileTree, workspaceId } =
+      get();
     if (activeFileId === fileId || !openTabs.some((tab) => tab.id === fileId)) {
       return;
     }
@@ -329,8 +381,8 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
     set(({ collapsedFolders }) => ({
       collapsedFolders: {
         ...collapsedFolders,
-        [folderId]: !collapsedFolders[folderId]
-      }
+        [folderId]: !collapsedFolders[folderId],
+      },
     }));
   },
   registerGraphSerializer: (serializer) => {
@@ -342,16 +394,18 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
     set(({ graphs, saveStates }) => ({
       graphs: {
         ...graphs,
-        [fileId]: normalized
+        [fileId]: normalized,
       },
       saveStates: {
         ...saveStates,
         [fileId]: {
-          status: options?.immediate ? 'saved' : 'saving',
+          status: options?.immediate ? "saved" : "saving",
           dirty: !options?.immediate,
-          lastSavedAt: options?.immediate ? normalized.updatedAt : saveStates[fileId]?.lastSavedAt
-        }
-      }
+          lastSavedAt: options?.immediate
+            ? normalized.updatedAt
+            : saveStates[fileId]?.lastSavedAt,
+        },
+      },
     }));
 
     const runCommit = () => {
@@ -362,18 +416,22 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
       }
 
       const fileIds = listFileIds(fileTree);
-      persistGraph(workspaceId, fileId, graphs[fileId] ?? createEmptyGraphState());
+      persistGraph(
+        workspaceId,
+        fileId,
+        graphs[fileId] ?? createEmptyGraphState(),
+      );
       persistIndex(workspaceId, fileIds, activeFileId);
 
       set(({ saveStates }) => ({
         saveStates: {
           ...saveStates,
           [fileId]: {
-            status: 'saved',
+            status: "saved",
             dirty: false,
-            lastSavedAt: graphs[fileId]?.updatedAt ?? Date.now()
-          }
-        }
+            lastSavedAt: graphs[fileId]?.updatedAt ?? Date.now(),
+          },
+        },
       }));
     };
 
@@ -410,9 +468,13 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
         timers.delete(fileId);
       }
 
-      get().saveGraphForFile(fileId, get().graphs[fileId] ?? createEmptyGraphState(), {
-        immediate: true
-      });
+      get().saveGraphForFile(
+        fileId,
+        get().graphs[fileId] ?? createEmptyGraphState(),
+        {
+          immediate: true,
+        },
+      );
     });
   },
   setSidebarCollapsed: (collapsed) => {
@@ -420,7 +482,7 @@ export const useFileStore = create<FileStoreState>((set, get) => ({
   },
   toggleSidebarCollapsed: () => {
     set(({ sidebarCollapsed }) => ({ sidebarCollapsed: !sidebarCollapsed }));
-  }
+  },
 }));
 
 export type { FileEntry, FileSaveState, SaveStatus };

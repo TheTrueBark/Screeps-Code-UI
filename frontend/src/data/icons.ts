@@ -53,7 +53,9 @@ const ICONS = {
 
 export type IconKey = keyof typeof ICONS;
 
-export const getIconComponent = (key: string | undefined): IconComponent | undefined => {
+export const getIconComponent = (
+  key: string | undefined,
+): IconComponent | undefined => {
   if (!key) {
     return undefined;
   }

@@ -1,17 +1,17 @@
-import { memo, useMemo } from 'react';
-import { listAllMeta, listByFamily } from '../../data/nodeRegistry';
-import type { NodeFamily } from '../../data/nodeRegistry/schema';
-import { cn } from '../../utils/classNames';
-import { NodeCatalogPanel } from './NodeCatalogPanel';
+import { memo, useMemo } from "react";
+import { listAllMeta, listByFamily } from "../../data/nodeRegistry";
+import type { NodeFamily } from "../../data/nodeRegistry/schema";
+import { cn } from "../../utils/classNames";
+import { NodeCatalogPanel } from "./NodeCatalogPanel";
 
 type CategoryKey =
-  | 'flow'
-  | 'query'
-  | 'creep'
-  | 'structure'
-  | 'memory'
-  | 'tasks'
-  | 'search';
+  | "flow"
+  | "query"
+  | "creep"
+  | "structure"
+  | "memory"
+  | "tasks"
+  | "search";
 
 type CategoryDefinition = {
   key: CategoryKey;
@@ -21,13 +21,13 @@ type CategoryDefinition = {
 };
 
 const CATEGORIES: CategoryDefinition[] = [
-  { key: 'flow', label: 'Flow', family: 'flow', glyph: 'FL' },
-  { key: 'query', label: 'Query', family: 'query', glyph: 'QR' },
-  { key: 'creep', label: 'Creep', family: 'creep', glyph: 'CP' },
-  { key: 'structure', label: 'Structure', family: 'structure', glyph: 'ST' },
-  { key: 'memory', label: 'Memory', family: 'memory', glyph: 'ME' },
-  { key: 'tasks', label: 'Tasks', family: 'task', glyph: 'TS' },
-  { key: 'search', label: 'Search', glyph: 'SR' }
+  { key: "flow", label: "Flow", family: "flow", glyph: "FL" },
+  { key: "query", label: "Query", family: "query", glyph: "QR" },
+  { key: "creep", label: "Creep", family: "creep", glyph: "CP" },
+  { key: "structure", label: "Structure", family: "structure", glyph: "ST" },
+  { key: "memory", label: "Memory", family: "memory", glyph: "ME" },
+  { key: "tasks", label: "Tasks", family: "task", glyph: "TS" },
+  { key: "search", label: "Search", glyph: "SR" },
 ];
 
 type BottomMenuProps = {
@@ -45,11 +45,12 @@ type BottomMenuProps = {
 const buildSearchNodes = () => {
   const all = listAllMeta();
   return all.filter((meta) => {
-    const summary = `${meta.title} ${meta.category ?? ''} ${meta.docs.summary ?? ''}`.toLowerCase();
+    const summary =
+      `${meta.title} ${meta.category ?? ""} ${meta.docs.summary ?? ""}`.toLowerCase();
     if (meta.shortcuts?.search) {
       return true;
     }
-    return summary.includes('find') || summary.includes('search');
+    return summary.includes("find") || summary.includes("search");
   });
 };
 
@@ -63,23 +64,27 @@ export const BottomMenu = memo(
     onZoomIn,
     onZoomOut,
     onZoomReset,
-    onZoomFit
+    onZoomFit,
   }: BottomMenuProps) => {
     const groups = useMemo(() => {
       const searchNodes = buildSearchNodes();
       return CATEGORIES.map((category) => ({
         ...category,
-        nodes: category.family ? listByFamily(category.family) : searchNodes
+        nodes: category.family ? listByFamily(category.family) : searchNodes,
       }));
     }, []);
 
     const active = useMemo(
       () => groups.find((group) => group.key === activeCategory) ?? null,
-      [groups, activeCategory]
+      [groups, activeCategory],
     );
 
     return (
-      <div className="bottom-menu" role="region" aria-label="Node catalog controls">
+      <div
+        className="bottom-menu"
+        role="region"
+        aria-label="Node catalog controls"
+      >
         {active ? (
           <NodeCatalogPanel
             key={active.key}
@@ -89,14 +94,18 @@ export const BottomMenu = memo(
             onSpawn={onSpawn}
           />
         ) : null}
-        <div className="bottom-menu-bar" role="toolbar" aria-label="Node catalog controls">
+        <div
+          className="bottom-menu-bar"
+          role="toolbar"
+          aria-label="Node catalog controls"
+        >
           {groups.map((category) => {
             const isActive = active?.key === category.key;
             return (
               <button
                 key={category.key}
                 type="button"
-                className={cn('bottom-menu-button', { active: isActive })}
+                className={cn("bottom-menu-button", { active: isActive })}
                 onClick={() => onToggle(category.key)}
                 aria-pressed={isActive}
                 title={category.label}
@@ -148,7 +157,7 @@ export const BottomMenu = memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
-BottomMenu.displayName = 'BottomMenu';
+BottomMenu.displayName = "BottomMenu";

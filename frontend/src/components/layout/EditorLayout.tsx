@@ -20,8 +20,12 @@ export const EditorLayout = ({ output, onOutputChange }: EditorLayoutProps) => {
   const [outputOpen, setOutputOpen] = useState(false);
   const effectiveOutput = output ?? localOutput;
   const sidebarCollapsed = useFileStore((state) => state.sidebarCollapsed);
-  const setSidebarCollapsed = useFileStore((state) => state.setSidebarCollapsed);
-  const toggleSidebarCollapsed = useFileStore((state) => state.toggleSidebarCollapsed);
+  const setSidebarCollapsed = useFileStore(
+    (state) => state.setSidebarCollapsed,
+  );
+  const toggleSidebarCollapsed = useFileStore(
+    (state) => state.toggleSidebarCollapsed,
+  );
 
   const handleGenerated = (value: string) => {
     setLocalOutput(value);

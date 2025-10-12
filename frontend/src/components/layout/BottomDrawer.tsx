@@ -155,7 +155,8 @@ export const BottomDrawer = () => {
               >
                 <div className="node-drawer-tile-header">
                   <span className="node-drawer-tile-icon">
-                    {definition.acronym ?? definition.title.slice(0, 2).toUpperCase()}
+                    {definition.acronym ??
+                      definition.title.slice(0, 2).toUpperCase()}
                   </span>
                   <span className="node-drawer-tile-name">
                     {definition.title}
