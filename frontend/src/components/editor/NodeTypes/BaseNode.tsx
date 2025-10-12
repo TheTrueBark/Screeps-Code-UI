@@ -1,6 +1,6 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { useReactFlow } from '@xyflow/react';
-import clsx from 'classnames';
+import cn from '../../../utils/classNames';
 import type { CSSProperties, ReactNode } from 'react';
 import type {
   ConfigField,
@@ -245,11 +245,11 @@ export const NodeShell = ({
                 className="port-dot"
               />
               <span
-                className={clsx('node-port-label', 'input', input.optional && 'optional')}
+                className={cn('node-port-label', 'input', { optional: input.optional })}
                 title={input.optional ? `${input.label} (optional)` : input.label}
               >
                 <span
-                  className={clsx('node-port-icon', 'input', input.optional && 'optional')}
+                  className={cn('node-port-icon', 'input', { optional: input.optional })}
                   aria-hidden="true"
                 />
                 <span className="node-port-text">{input.label}</span>
