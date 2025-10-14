@@ -27,6 +27,47 @@ export const nodes: Record<string, NodeMeta> = {
         description:
           "Annotation displayed on the node header to identify the tick entry point.",
       },
+      {
+        key: "flowMode",
+        label: "Flow behaviour",
+        type: "enum",
+        default: "next",
+        description:
+          "Choose whether the node emits flow immediately (Next) or on a schedule.",
+        options: [
+          { label: "Next", value: "next" },
+          { label: "Schedule", value: "schedule" },
+        ],
+      },
+      {
+        key: "scheduleMode",
+        label: "Schedule mode",
+        type: "enum",
+        default: "everyTick",
+        description:
+          "When scheduling is enabled, determine the cadence for triggering downstream flow.",
+        options: [
+          { label: "Every tick", value: "everyTick" },
+          { label: "Every N ticks", value: "interval" },
+          { label: "Modulo", value: "modulo" },
+        ],
+      },
+      {
+        key: "tickSpan",
+        label: "Tick interval",
+        type: "number",
+        default: 1,
+        description:
+          "Number of ticks between scheduled executions when using interval or modulo modes.",
+      },
+      {
+        key: "moduloOffset",
+        label: "Modulo offset",
+        type: "number",
+        default: 0,
+        description:
+          "Offset applied to modulo scheduling to shift the tick remainder that triggers execution.",
+      },
     ],
     defaultInputs: [],
     defaultOutputs: [
@@ -69,9 +110,9 @@ export const nodes: Record<string, NodeMeta> = {
     ],
     docs: {
       summary:
-        "Entry point executed once per tick for the active automation file.",
+        "Entry point executed once per tick or on a configurable schedule for the active automation file.",
       usage:
-        "Place a single Start node in the graph and connect its flow output to the first control construct or action that should run every tick.",
+        "Place a single Start node in the graph and connect its flow output to the first control construct or action. Switch the flow behaviour to Schedule when the pipeline should run on a cadence rather than every tick.",
       outputs: "- **Next:** Flow output that begins the automation pipeline.",
       notes:
         "Only one Start node should exist in a graph to avoid duplicate execution.",

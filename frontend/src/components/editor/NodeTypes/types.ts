@@ -2,43 +2,35 @@ import type { NodeIR } from "@shared/types";
 import type { NodeProps } from "@xyflow/react";
 import type { NodeFamily } from "../../../data/nodeRegistry/schema";
 
+type ConfigFieldBase = {
+  name: string;
+  label: string;
+  helper?: string;
+  visible?: (config: Record<string, unknown>) => boolean;
+};
+
 export type ConfigField =
-  | {
+  | (ConfigFieldBase & {
       type: "text";
-      name: string;
-      label: string;
       placeholder?: string;
-      helper?: string;
-    }
-  | {
+    })
+  | (ConfigFieldBase & {
       type: "number";
-      name: string;
-      label: string;
       min?: number;
       max?: number;
       step?: number;
-      helper?: string;
-    }
-  | {
+    })
+  | (ConfigFieldBase & {
       type: "select";
-      name: string;
-      label: string;
       options: Array<{ value: string; label: string }>;
-      helper?: string;
-    }
-  | {
+    })
+  | (ConfigFieldBase & {
       type: "checkbox";
-      name: string;
-      label: string;
-      helper?: string;
-    }
-  | {
+    })
+  | (ConfigFieldBase & {
       type: "json";
-      name: string;
-      label: string;
-      helper?: string;
       rows?: number;
-    };
+    });
 
 export interface SlotDefinition {
   name: string;
