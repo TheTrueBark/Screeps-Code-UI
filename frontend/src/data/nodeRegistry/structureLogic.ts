@@ -545,6 +545,7 @@ export const nodes: Record<string, NodeMeta> = {
         id: "input:factory",
         label: "Factory",
         type: "StructureFactory | StructureLab",
+        description: "Factory or lab structure executing the reaction.",
       },
       {
         id: "input:resources",

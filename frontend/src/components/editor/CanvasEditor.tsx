@@ -35,6 +35,11 @@ import { getDocMarkdown, getNodeMeta } from "../../data/nodeRegistry";
 import type { ScreepsNodeData } from "./NodeTypes/BaseNode";
 import type { NodeDefinition } from "./NodeTypes/types";
 import { NODE_DEFINITION_MAP, NODE_TYPE_MAP } from "./nodeRegistry";
+import {
+  CanvasInteractionContext,
+  type CanvasHandleRef,
+} from "./CanvasInteractionContext";
+import { ForegroundEdge } from "./ForegroundEdge";
 import { BottomMenu } from "./BottomMenu";
 import { NodeHelpPopover } from "./NodeHelpPopover";
 import { NodeToolbar } from "./NodeToolbar";
@@ -101,12 +106,20 @@ const normalizeNodes = (
   })) as Node<ScreepsNodeData>[];
 
 const normalizeEdges = (edges: GraphState["xyflow"]["edges"]): Edge[] =>
-  edges.map((edge) => ({
-    ...edge,
-    id: edge.id ?? nanoid(),
-    sourceHandle: edge.sourceHandle ?? undefined,
-    targetHandle: edge.targetHandle ?? undefined,
-  }));
+  edges.map((edge) => {
+    const typed = edge as Partial<Edge>;
+    const resolvedType =
+      typeof typed.type === "string" && typed.type.length > 0
+        ? typed.type
+        : undefined;
+    return {
+      ...edge,
+      id: edge.id ?? nanoid(),
+      type: resolvedType ?? "foreground",
+      sourceHandle: edge.sourceHandle ?? undefined,
+      targetHandle: edge.targetHandle ?? undefined,
+    } as Edge;
+  });
 
 const instantiateNode = (
   definition: NodeDefinition,
@@ -186,6 +199,7 @@ const CanvasEditorInner = () => {
     Node<ScreepsNodeData>
   >([]);
   const [edges, setEdges, applyEdgeChanges] = useEdgesState<Edge>([]);
+  const [hoveredHandles, setHoveredHandles] = useState<CanvasHandleRef[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [toolbarAnchor, setToolbarAnchor] = useState<DOMRect | null>(null);
   const [toolbarPlacement, setToolbarPlacement] = useState<"above" | "below">(
@@ -604,6 +618,110 @@ const CanvasEditorInner = () => {
   }, [edges]);
 
   useEffect(() => {
+    setEdges((current) => {
+      if (current.length === 0) {
+        return current;
+      }
+
+      const handleSet = new Set(
+        hoveredHandles.map(
+          (handle) => `${handle.nodeId}:${handle.handleId}`,
+        ),
+      );
+
+      let changed = false;
+      const next = current.map((edge) => {
+        const matches = Boolean(
+          (edge.sourceHandle &&
+            handleSet.has(`${edge.source}:${edge.sourceHandle}`)) ||
+            (edge.targetHandle &&
+              handleSet.has(`${edge.target}:${edge.targetHandle}`)),
+        );
+        const currentHighlighted = Boolean(edge.data?.highlighted);
+        if (currentHighlighted === matches) {
+          return edge;
+        }
+
+        changed = true;
+        return {
+          ...edge,
+          data: {
+            ...(edge.data ?? {}),
+            highlighted: matches,
+          },
+        };
+      });
+
+      return changed ? next : current;
+    });
+  }, [hoveredHandles, setEdges]);
+
+  const handleHighlightHandles = useCallback((handles: CanvasHandleRef[]) => {
+    setHoveredHandles((current) => {
+      const additions = handles.filter(
+        (handle) =>
+          !current.some(
+            (entry) =>
+              entry.nodeId === handle.nodeId &&
+              entry.handleId === handle.handleId,
+          ),
+      );
+
+      if (additions.length === 0) {
+        return current;
+      }
+
+      return [...current, ...additions];
+    });
+  }, []);
+
+  const handleClearHandles = useCallback((handles: CanvasHandleRef[]) => {
+    setHoveredHandles((current) => {
+      if (current.length === 0) {
+        return current;
+      }
+
+      const filtered = current.filter(
+        (entry) =>
+          !handles.some(
+            (handle) =>
+              handle.nodeId === entry.nodeId &&
+              handle.handleId === entry.handleId,
+          ),
+      );
+
+      if (filtered.length === current.length) {
+        return current;
+      }
+
+      return filtered;
+    });
+  }, []);
+
+  const handleDeleteEdgeById = useCallback(
+    (edgeId: string) => {
+      const edge = edgesRef.current.find((entry) => entry.id === edgeId);
+      setEdges((current) => current.filter((entry) => entry.id !== edgeId));
+      if (edge) {
+        clearPortPreview(edge.target, edge.targetHandle);
+      }
+      setHoveredHandles((current) =>
+        current.filter(
+          (handle) =>
+            !(
+              (edge?.source === handle.nodeId &&
+                edge?.sourceHandle === handle.handleId) ||
+              (edge?.target === handle.nodeId &&
+                edge?.targetHandle === handle.handleId)
+            ),
+        ),
+      );
+      scheduleGraphSave();
+    },
+    [clearPortPreview, scheduleGraphSave, setEdges],
+  );
+
+  useEffect(() => {
     updateToolbarAnchor();
   }, [nodes, selectedNodeId, updateToolbarAnchor]);
 
@@ -921,7 +1039,22 @@ const CanvasEditorInner = () => {
         }
 
         if (selectedEdges.length > 0) {
+          selectedEdges.forEach((edge) => {
+            clearPortPreview(edge.target, edge.targetHandle);
+          });
           setEdges((current) => current.filter((edge) => !edge.selected));
+          setHoveredHandles((current) =>
+            current.filter(
+              (handle) =>
+                !selectedEdges.some(
+                  (edge) =>
+                    (edge.source === handle.nodeId &&
+                      edge.sourceHandle === handle.handleId) ||
+                    (edge.target === handle.nodeId &&
+                      edge.targetHandle === handle.handleId),
+                ),
+            ),
+          );
           scheduleGraphSave();
         }
 
@@ -990,18 +1123,33 @@ const CanvasEditorInner = () => {
 
   const showFlow = Boolean(activeFileId);
 
+  const interactionContextValue = useMemo(
+    () => ({
+      highlightHandles: handleHighlightHandles,
+      clearHandles: handleClearHandles,
+      requestEdgeDelete: handleDeleteEdgeById,
+    }),
+    [
+      handleClearHandles,
+      handleDeleteEdgeById,
+      handleHighlightHandles,
+    ],
+  );
+
+  const edgeTypes = useMemo(() => ({ foreground: ForegroundEdge }), []);
+
   const defaultEdgeOptions = useMemo(
     () => ({
-      type: "smoothstep",
+      type: "foreground",
       animated: true,
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: "#5a6169",
+        color: "#7a8ba7",
         width: 14,
         height: 14,
       },
       style: {
-        stroke: "#5a6169",
+        stroke: "#7a8ba7",
         strokeWidth: 1.5,
       },
     }),
@@ -1098,74 +1246,79 @@ const CanvasEditorInner = () => {
       }}
     >
       {showFlow ? (
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          nodeTypes={nodeTypes}
-          defaultEdgeOptions={defaultEdgeOptions}
-          fitView
-          panOnDrag={[1, 2]}
-          snapToGrid
-          snapGrid={SNAP_GRID}
-          selectionOnDrag={false}
-          zoomOnScroll={false}
-          panOnScroll={false}
-          className="neo-flow"
-          style={
-            {
-              "--grid-size": `${gridVisualGap}px`,
-              "--grid-offset-x": `${gridOffset.x}px`,
-              "--grid-offset-y": `${gridOffset.y}px`,
-            } as CSSProperties
-          }
-          onSelectionChange={handleSelectionChange as any}
-          onMoveEnd={() => {
-            refreshZoom();
-            scheduleGraphSave();
-          }}
-          onViewportChange={(_viewport: Viewport) => {
-            scheduleGraphSave();
-          }}
-          onNodeDrag={(_, node) => {
-            const snapped = snapPosition(node.position);
-            setNodes((current) =>
-              current.map((existing) =>
-                existing.id === node.id
-                  ? {
-                      ...existing,
-                      position: snapped,
-                    }
-                  : existing,
-              ),
-            );
-          }}
-          onNodeDragStop={(_, node) => {
-            setNodes((current) =>
-              current.map((existing) =>
-                existing.id === node.id
-                  ? {
-                      ...existing,
-                      position: snapPosition(node.position),
-                    }
-                  : existing,
-              ),
-            );
-            scheduleGraphSave();
-          }}
-          onPaneMouseMove={(event) => {
-            pointerRef.current = { x: event.clientX, y: event.clientY };
-          }}
+        <CanvasInteractionContext.Provider
+          value={interactionContextValue}
         >
-          <Background
-            gap={gridVisualGap}
-            color="#1c1d1f"
-            lineWidth={1}
-            variant={BackgroundVariant.Lines}
-          />
-        </ReactFlow>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            edgeTypes={edgeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            nodeTypes={nodeTypes}
+            defaultEdgeOptions={defaultEdgeOptions}
+            fitView
+            panOnDrag={[1, 2]}
+            snapToGrid
+            snapGrid={SNAP_GRID}
+            selectionOnDrag={false}
+            zoomOnScroll={false}
+            panOnScroll={false}
+            className="neo-flow"
+            style={
+              {
+                "--grid-size": `${gridVisualGap}px`,
+                "--grid-offset-x": `${gridOffset.x}px`,
+                "--grid-offset-y": `${gridOffset.y}px`,
+              } as CSSProperties
+            }
+            onSelectionChange={handleSelectionChange as any}
+            onMoveEnd={() => {
+              refreshZoom();
+              scheduleGraphSave();
+            }}
+            onViewportChange={(_viewport: Viewport) => {
+              scheduleGraphSave();
+            }}
+            onNodeDrag={(_, node) => {
+              const snapped = snapPosition(node.position);
+              setNodes((current) =>
+                current.map((existing) =>
+                  existing.id === node.id
+                    ? {
+                        ...existing,
+                        position: snapped,
+                      }
+                    : existing,
+                ),
+              );
+            }}
+            onNodeDragStop={(_, node) => {
+              setNodes((current) =>
+                current.map((existing) =>
+                  existing.id === node.id
+                    ? {
+                        ...existing,
+                        position: snapPosition(node.position),
+                      }
+                    : existing,
+                ),
+              );
+              scheduleGraphSave();
+            }}
+            onPaneMouseMove={(event) => {
+              pointerRef.current = { x: event.clientX, y: event.clientY };
+            }}
+          >
+            <Background
+              gap={gridVisualGap}
+              color="#1c1d1f"
+              lineWidth={1}
+              variant={BackgroundVariant.Lines}
+            />
+          </ReactFlow>
+        </CanvasInteractionContext.Provider>
       ) : (
         emptyState
       )}

@@ -223,6 +223,10 @@ export const NodeShell = ({
     const rowsList: IOPortRow[] = [];
 
     definition.configFields.forEach((field) => {
+      if (field.visible && !field.visible(data.config ?? {})) {
+        return;
+      }
+
       if (field.type === "json" && field.name === "filters") {
         if (filters.length === 0) {
           rowsList.push({

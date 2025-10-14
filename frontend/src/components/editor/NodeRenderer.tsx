@@ -1,6 +1,7 @@
 import { Handle, Position, type Node } from "@xyflow/react";
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -12,6 +13,8 @@ import { getIconComponent } from "../../data/icons";
 import { getNodeMeta } from "../../data/nodeRegistry";
 import type { NodeFamily, NodeMeta } from "../../data/nodeRegistry/schema";
 import { cn } from "../../utils/classNames";
+import { useCanvasInteraction } from "./CanvasInteractionContext";
+import type { CanvasHandleRef } from "./CanvasInteractionContext";
 import type {
   DataInputDefinition,
   DataOutputDefinition,
@@ -225,14 +228,51 @@ const Row = ({
   data,
   row,
   meta,
+  nodeId,
 }: {
   definition: Omit<NodeDefinition, "Component">;
   data: ScreepsNodeData;
   row: IOPortRow;
   meta?: NodeMeta;
+  nodeId: string;
 }) => {
   const palette = familyPalette[meta?.family ?? data.family];
   const Icon = row.icon ? getIconComponent(row.icon) : undefined;
+  const { highlightHandles, clearHandles } = useCanvasInteraction();
+
+  const handles = useMemo<CanvasHandleRef[]>(() => {
+    const items: CanvasHandleRef[] = [];
+    if (row.inputPort) {
+      items.push({ nodeId, handleId: row.inputPort });
+    }
+    if (row.outputPort) {
+      items.push({ nodeId, handleId: row.outputPort });
+    }
+    return items;
+  }, [nodeId, row.inputPort, row.outputPort]);
+
+  useEffect(() => {
+    return () => {
+      if (handles.length > 0) {
+        clearHandles(handles);
+      }
+    };
+  }, [clearHandles, handles]);
+
+  const applyHighlight = useCallback(
+    (active: boolean) => {
+      if (handles.length === 0) {
+        return;
+      }
+
+      if (active) {
+        highlightHandles(handles);
+      } else {
+        clearHandles(handles);
+      }
+    },
+    [clearHandles, handles, highlightHandles],
+  );
 
   const content = row.control ?? (
     <div className="node-grid-preview" title={row.preview ?? row.placeholder}>
@@ -245,7 +285,12 @@ const Row = ({
   );
 
   return (
-    <div className="node-grid-row" data-row-key={row.key}>
+    <div
+      className="node-grid-row"
+      data-row-key={row.key}
+      onMouseEnter={() => applyHighlight(true)}
+      onMouseLeave={() => applyHighlight(false)}
+    >
       <div className="node-grid-port node-grid-port-left">
         {row.inputPort ? (
           <Handle
@@ -444,6 +489,7 @@ export const NodeRenderer = ({
                 data={node.data}
                 row={row}
                 meta={resolvedMeta}
+                nodeId={node.id}
               />
             ))}
             {visibleRows.length === 0 ? (

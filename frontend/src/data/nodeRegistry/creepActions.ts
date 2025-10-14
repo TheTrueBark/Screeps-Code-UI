@@ -437,6 +437,7 @@ export const nodes: Record<string, NodeMeta> = {
         id: "input:creep",
         label: "Creep",
         type: "Creep",
+        description: "Optional creep reference overriding implicit context.",
         optional: true,
       },
       {
@@ -536,6 +537,7 @@ export const nodes: Record<string, NodeMeta> = {
         id: "input:creep",
         label: "Creep",
         type: "Creep",
+        description: "Optional creep reference overriding implicit context.",
         optional: true,
       },
       {
@@ -639,6 +641,7 @@ export const nodes: Record<string, NodeMeta> = {
         id: "input:creep",
         label: "Creep",
         type: "Creep",
+        description: "Optional creep reference overriding implicit context.",
         optional: true,
       },
       {
@@ -738,6 +741,7 @@ export const nodes: Record<string, NodeMeta> = {
         id: "input:creep",
         label: "Creep",
         type: "Creep",
+        description: "Optional creep reference overriding implicit context.",
         optional: true,
       },
       {
@@ -840,6 +844,7 @@ export const nodes: Record<string, NodeMeta> = {
         id: "input:creep",
         label: "Creep",
         type: "Creep",
+        description: "Optional creep reference overriding implicit context.",
         optional: true,
       },
       {
@@ -950,6 +955,7 @@ export const nodes: Record<string, NodeMeta> = {
         id: "input:creep",
         label: "Creep",
         type: "Creep",
+        description: "Optional creep reference overriding implicit context.",
         optional: true,
       },
       {
@@ -1047,11 +1053,13 @@ export const nodes: Record<string, NodeMeta> = {
         id: "input:creep",
         label: "Creep",
         type: "Creep",
+        description: "Creep performing the claim or reserve action.",
       },
       {
         id: "input:controller",
         label: "Controller",
         type: "StructureController",
+        description: "Controller structure to claim or reserve.",
       },
     ],
     defaultOutputs: [
