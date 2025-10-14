@@ -95,7 +95,41 @@ const FileTreeNode = ({
         }}
       >
         <span className="tree-lead" aria-hidden>
-          {node.kind === "folder" ? (isCollapsed ? "▸" : "▾") : "•"}
+          {node.kind === "folder" ? (
+            <svg
+              className="tree-icon tree-icon-caret"
+              viewBox="0 0 12 12"
+              focusable="false"
+            >
+              {isCollapsed ? (
+                <polyline
+                  points="4 3 8 6 4 9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : (
+                <polyline
+                  points="3 5 6 8 9 5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+            </svg>
+          ) : (
+            <svg
+              className="tree-icon tree-icon-file"
+              viewBox="0 0 12 12"
+              focusable="false"
+            >
+              <circle cx="6" cy="6" r="2.5" />
+            </svg>
+          )}
         </span>
         <span className="tree-label">{highlightMatch(label, query)}</span>
         {node.kind === "folder" ? (
@@ -177,45 +211,50 @@ export const FileTree = ({ onCollapse }: FileTreeProps) => {
     [filteredTree, query],
   );
 
-  const totalFiles = useMemo(
-    () => fileTree.reduce((total, entry) => total + countFiles(entry), 0),
-    [fileTree],
-  );
-
   return (
     <div className="file-tree">
       <div className="file-tree-brand">
-        <div className="file-tree-brand-main">
-          <span className="file-tree-brand-symbol" aria-hidden>
-            <span className="file-tree-brand-dot" />
-            <span className="file-tree-brand-hash">#</span>
-          </span>
-          <div className="file-tree-brand-text">
-            <span className="file-tree-brand-label">Workspace</span>
-            <h2 className="file-tree-brand-title">{normalizedWorkspaceName}</h2>
-            <p className="file-tree-brand-subtitle">
-              {fileTree.length} Collections · {totalFiles} Files
-            </p>
-          </div>
-        </div>
-        <div className="file-tree-brand-actions">
-          <span className="file-tree-brand-chevron" aria-hidden>
-            ▾
-          </span>
-          <button
-            type="button"
-            className="tree-collapse"
-            onClick={onCollapse}
-            title="Collapse sidebar"
-            aria-label="Collapse sidebar"
-          >
-            ⟨
-          </button>
-        </div>
+        <span className="file-tree-brand-title">{normalizedWorkspaceName}</span>
+        <button
+          type="button"
+          className="tree-collapse"
+          onClick={onCollapse}
+          title="Collapse sidebar"
+          aria-label="Collapse sidebar"
+        >
+          <svg viewBox="0 0 12 12" focusable="false">
+            <polyline
+              points="7.5 3 4.5 6 7.5 9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
       </div>
       <label className="file-tree-search">
         <span className="file-tree-search-icon" aria-hidden>
-          🔍
+          <svg viewBox="0 0 18 18" focusable="false">
+            <circle
+              cx="8"
+              cy="8"
+              r="4.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <line
+              x1="11.5"
+              y1="11.5"
+              x2="15"
+              y2="15"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
         </span>
         <input
           value={query}

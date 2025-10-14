@@ -16,14 +16,6 @@ export const TabsBar = ({ className }: TabsBarProps) => {
   const closeTab = useFileStore((state) => state.closeTab);
   const saveStates = useFileStore((state) => state.saveStates);
 
-  const activeStatus = activeFileId ? saveStates[activeFileId] : undefined;
-  const statusLabel =
-    activeStatus?.status === "saving"
-      ? "Saving…"
-      : activeStatus?.status === "saved"
-        ? "Saved"
-        : "";
-
   const handleSelect = useCallback(
     (fileId: string) => () => {
       setActiveFile(fileId);
@@ -49,20 +41,16 @@ export const TabsBar = ({ className }: TabsBarProps) => {
       ) : (
         openTabs.map((tab) => {
           const isActive = tab.id === activeFileId;
+          const isDirty = Boolean(saveStates[tab.id]?.dirty);
           const displayName = tab.name.replace(/\.ts$/i, "");
           return (
             <button
               key={tab.id}
               type="button"
               onClick={handleSelect(tab.id)}
-              className={cn("tab-chip", { active: isActive })}
+              className={cn("tab-chip", { active: isActive, dirty: isDirty })}
             >
-              <span className="tab-chip-label">
-                {saveStates[tab.id]?.dirty ? (
-                  <span className="tab-chip-dot">•</span>
-                ) : null}
-                {displayName}
-              </span>
+              <span className="tab-chip-label">{displayName}</span>
               <span
                 role="button"
                 tabIndex={0}
@@ -78,16 +66,10 @@ export const TabsBar = ({ className }: TabsBarProps) => {
               >
                 ×
               </span>
-              <span className="tab-chip-indicator" aria-hidden />
             </button>
           );
         })
       )}
-      {statusLabel ? (
-        <div className="tab-status" aria-live="polite">
-          {statusLabel}
-        </div>
-      ) : null}
     </div>
   );
 };
