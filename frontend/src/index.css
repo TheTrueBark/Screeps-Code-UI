@@ -5,12 +5,12 @@
 @tailwind utilities;
 
 :root {
-  --bg-oled: #000000;
-  --panel: #101214;
-  --panel-2: #0f0f10;
-  --border: #1b1f23;
-  --text: #e9eef3;
-  --muted: #9aa4ae;
+  --bg-oled: #050608;
+  --panel: #0f1117;
+  --panel-2: #12151c;
+  --border: #1c2129;
+  --text: #edf2f8;
+  --muted: #8d96a6;
   --cyan: #00c8ff;
   --yellow: #facc15;
   --purple: #bb86fc;
@@ -49,6 +49,6 @@ body {
 }
 
 ::selection {
-  background: rgba(0, 200, 255, 0.3);
+  background: rgba(76, 139, 255, 0.3);
   color: var(--color-text);
 }
